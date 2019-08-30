@@ -1,0 +1,58 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Cargo launch",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--lib"
+                ]
+            },
+            "program": "${cargo:program}",
+            "args": []
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'sudoku-solver'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=sudoku-solver",
+                    "--package=sudoku-solver"
+                ],
+                "filter": {
+                    "name": "sudoku-solver",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'sudoku-solver'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=sudoku-solver",
+                    "--package=sudoku-solver"
+                ],
+                "filter": {
+                    "name": "sudoku-solver",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
