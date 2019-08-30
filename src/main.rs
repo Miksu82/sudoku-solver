@@ -8,6 +8,8 @@ use std::str::FromStr;
 use std::fmt::Display;
 use serde::{Deserialize, Deserializer};
 
+const ALL :[u8; 9] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
 #[derive(Deserialize, Debug)]
 struct SquareResponse {
     x: usize,
@@ -58,28 +60,15 @@ impl std::fmt::Display for Board {
 
 fn main() {
     println!("Hello, world!");
-    let f :u8 = 10;
-    let s = f.to_string();
 
     let board_response = make_request()
         .expect("Failed to get sudoku");
-    println!("body = {:#?}", board_response);
-    let board = convert(board_response);
+    //println!("body = {:#?}", board_response);
+    let mut board = convert(board_response);
     println!("board = {}", board);
-    //solve(&mut board);
-    //println!("solved board = {}", board);
+    solve3(&mut board);
+    println!("solved board = {}", board);
 }
-
-// fn convert(response: BoardResponse) -> Board {
-//     let mut arr: [[Option<u8>; 9]; 9] = [[None; 9]; 9];
-
-//     for square in response.squares.iter() {
-//         arr[square.x][square.y] = Some(square.value)
-//     }
-//     return Board {
-//         squares: arr
-//     };
-// }
 
 fn convert(response: BoardResponse) -> Board {
     let empty_square = Square {
@@ -119,41 +108,92 @@ fn convert(response: BoardResponse) -> Board {
 //     }
 // }
 
-// fn solve3(board: &mut Board) {
-//     loop {
-//         for square in &board.squares {
+fn solve3(board: &mut Board) {
+    loop {
+        let mut squares = board.squares;
+        for square in squares.iter_mut() {
+            if square.value.is_none() {
+                square.value = find_value(board, square.x, square.y);
+                break;
+            }
+        }
+        board.squares = squares
+    }
+}
 
-//         }
-//     }
-// }
+fn find_value(board: &Board, x: usize, y: usize) -> Option<u8> {
+    let miss_x = missing_x(board, x);
+    let miss_y = missing_y(board, y);
+    let miss_square = miss_square(board, x, y);
+    println!("missing x={}, y={}: {:?}", x, y, miss_square);
+    return Some(8)
+}
 
-// fn solve2(board: &mut Board) {
-//     loop {
-//         for row in &board.squares {
-//             for maybe_value in row {
-//                 if maybe_value.is_none() {
-//                     *maybe_value = find_value(board, 1, 2)
-//                 }
-//             }
-//         }
-//     }
-// }
 
-// fn solve(board: &mut Board) {
-//     loop {
-//         for (x, row) in board.squares.iter().enumerate() {
-//             for (y, maybe_value) in row.iter().enumerate() {
-//                 if maybe_value.is_none() {
-//                     *maybe_value = find_value(board, x, y)
-//                 }
-//             }
-//         }
-//     }
-// }
+fn missing_x(board: &Board, x: usize) -> Vec<&u8> {
 
-// fn find_value(board: &Board, x: usize, y: usize) -> Option<u8> {
-//     return Some(8)
-// }
+    let column = board.squares.into_iter()
+        .filter(|square| square.x == x && square.value.is_some())
+        .map(|square| square.value.unwrap())
+        .collect::<Vec<_>>();
+
+    return ALL.into_iter()
+                .filter(|value| column.iter().find(|c| c == value).is_none())
+                .collect::<Vec<_>>();
+}
+
+fn missing_y(board: &Board, y: usize) -> Vec<&u8> {
+
+    let column = board.squares.into_iter()
+        .filter(|square| square.y == y && square.value.is_some())
+        .map(|square| square.value.unwrap())
+        .collect::<Vec<_>>();
+
+    return ALL.into_iter()
+                .filter(|value| column.iter().find(|c| c == value).is_none())
+                .collect::<Vec<_>>();
+}
+
+fn miss_square(board: &Board, x: usize, y: usize) -> Vec<&u8> {
+    let offset = get_offset(x, y);
+    let possible_x = offset.0.into_iter()
+        .map(|x_offset| (*x_offset + x as i8) as usize)
+        .collect::<Vec<_>>();
+    let possible_y = offset.1.into_iter()
+        .map(|y_offset| (*y_offset + y as i8) as usize)
+        .collect::<Vec<_>>();
+
+    // println!("offset {:?}", offset);
+    // println!("possible_x {:?}", possible_x);
+    // println!("possible_y {:?}", possible_y);
+
+    let subset = board.squares.into_iter()
+        .filter(|square| {
+            possible_x.contains(&square.x) && possible_y.contains(&square.y) && square.value.is_some()
+        })
+        .map(|square| square.value.unwrap())
+        .collect::<Vec<_>>();
+
+    return ALL.into_iter()
+                .filter(|value| subset.iter().find(|c| c == value).is_none())
+                .collect::<Vec<_>>();
+}
+
+fn get_offset(x: usize, y: usize) -> ([i8; 3], [i8; 3]) {
+    let x_offset = match x % 3 {
+        0 => [0, 1, 2],
+        1 => [-1, 0, 1],
+        2 => [-1, 0, -2],
+        _ => panic!("Should not happen")
+    };
+    let y_offset = match y % 3 {
+        0 => [0, 1, 2],
+        1 => [-1, 0, 1],
+        2 => [-1, 0, -2],
+        _ => panic!("Should not happen")
+    };
+    return (x_offset, y_offset)
+}
 
 fn make_request() -> Result<BoardResponse, reqwest::Error> {
     let client = reqwest::Client::new();
