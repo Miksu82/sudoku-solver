@@ -60,6 +60,26 @@ impl std::fmt::Display for Board {
     }
 }
 
+impl std::fmt::Debug for Board {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        self.squares[..].fmt(formatter)
+    }
+}
+
+impl PartialEq for Square {
+    fn eq(&self, other: &Self) -> bool {
+        return self.x == other.x && self.y == other.y && self.value == other.value;
+    }
+}
+impl PartialEq for Board {
+    fn eq(&self, other: &Self) -> bool {
+        let self_as_vec: Vec<_> = self.squares.iter().collect();
+        let other_as_vec: Vec<_> = other.squares.iter().collect();
+        return self_as_vec == other_as_vec;
+    }
+}
+
+
 
 fn main() {
     println!("Sudoku solver");
@@ -277,4 +297,558 @@ fn from_str<'de, T, D>(deserializer: D) -> Result<T, D::Error>
 {
     let s = String::deserialize(deserializer)?;
     T::from_str(&s).map_err(serde::de::Error::custom)
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_solve() {
+        let board_response = BoardResponse {
+            response: true,
+            size: 9,
+            squares: vec![
+                SquareResponse {
+                    x: 2,
+                    y: 0,
+                    value: 1,
+                },
+                SquareResponse {
+                    x: 6,
+                    y: 0,
+                    value: 6,
+                },
+                SquareResponse {
+                    x: 1,
+                    y: 1,
+                    value: 4,
+                },
+                SquareResponse {
+                    x: 3,
+                    y: 1,
+                    value: 7,
+                },
+                SquareResponse {
+                    x: 5,
+                    y: 1,
+                    value: 3,
+                },
+                SquareResponse {
+                    x: 7,
+                    y: 1,
+                    value: 8,
+                },
+                SquareResponse {
+                    x: 0,
+                    y: 2,
+                    value: 3,
+                },
+                SquareResponse {
+                    x: 8,
+                    y: 2,
+                    value: 9,
+                },
+                SquareResponse {
+                    x: 1,
+                    y: 3,
+                    value: 7,
+                },
+                SquareResponse {
+                    x: 3,
+                    y: 3,
+                    value: 4,
+                },
+                SquareResponse {
+                    x: 5,
+                    y: 3,
+                    value: 9,
+                },
+                SquareResponse {
+                    x: 7,
+                    y: 3,
+                    value: 3,
+                },
+                SquareResponse {
+                    x: 4,
+                    y: 4,
+                    value: 8,
+                },
+                SquareResponse {
+                    x: 1,
+                    y: 5,
+                    value: 8,
+                },
+                SquareResponse {
+                    x: 3,
+                    y: 5,
+                    value: 5,
+                },
+                SquareResponse {
+                    x: 5,
+                    y: 5,
+                    value: 1,
+                },
+                SquareResponse {
+                    x: 7,
+                    y: 5,
+                    value: 6,
+                },
+                SquareResponse {
+                    x: 0,
+                    y: 6,
+                    value: 6,
+                },
+                SquareResponse {
+                    x: 8,
+                    y: 6,
+                    value: 4,
+                },
+                SquareResponse {
+                    x: 1,
+                    y: 7,
+                    value: 3,
+                },
+                SquareResponse {
+                    x: 3,
+                    y: 7,
+                    value: 1,
+                },
+                SquareResponse {
+                    x: 5,
+                    y: 7,
+                    value: 7,
+                },
+                SquareResponse {
+                    x: 7,
+                    y: 7,
+                    value: 5,
+                },
+                SquareResponse {
+                    x: 2,
+                    y: 8,
+                    value: 9,
+                },
+                SquareResponse {
+                    x: 6,
+                    y: 8,
+                    value: 2,
+                },
+            ],
+        };
+
+        let result = Board {
+            is_finished: true,
+            squares: [Square {
+                x: 0,
+                y: 0,
+                value: Some(7),
+                num_iteration: 4
+            }, Square {
+                x: 0,
+                y: 1,
+                value: Some(2),
+                num_iteration: 3
+            }, Square {
+                x: 0,
+                y: 2,
+                value: Some(3),
+                num_iteration: 0
+            }, Square {
+                x: 0,
+                y: 3,
+                value: Some(1),
+                num_iteration: 3
+            }, Square {
+                x: 0,
+                y: 4,
+                value: Some(4),
+                num_iteration: 5
+            }, Square {
+                x: 0,
+                y: 5,
+                value: Some(9),
+                num_iteration: 5
+            }, Square {
+                x: 0,
+                y: 6,
+                value: Some(6),
+                num_iteration: 0
+            }, Square {
+                x: 0,
+                y: 7,
+                value: Some(8),
+                num_iteration: 5
+            }, Square {
+                x: 0,
+                y: 8,
+                value: Some(5),
+                num_iteration: 2
+            }, Square {
+                x: 1,
+                y: 0,
+                value: Some(9),
+                num_iteration: 3
+            }, Square {
+                x: 1,
+                y: 1,
+                value: Some(4),
+                num_iteration: 0
+            }, Square {
+                x: 1,
+                y: 2,
+                value: Some(5),
+                num_iteration: 5
+            }, Square {
+                x: 1,
+                y: 3,
+                value: Some(7),
+                num_iteration: 0
+            }, Square {
+                x: 1,
+                y: 4,
+                value: Some(6),
+                num_iteration: 5
+            }, Square {
+                x: 1,
+                y: 5,
+                value: Some(8),
+                num_iteration: 0
+            }, Square {
+                x: 1,
+                y: 6,
+                value: Some(2),
+                num_iteration: 2
+            }, Square {
+                x: 1,
+                y: 7,
+                value: Some(3),
+                num_iteration: 0
+            }, Square {
+                x: 1,
+                y: 8,
+                value: Some(1),
+                num_iteration: 1
+            }, Square {
+                x: 2,
+                y: 0,
+                value: Some(1),
+                num_iteration: 0
+            }, Square {
+                x: 2,
+                y: 1,
+                value: Some(6),
+                num_iteration: 5
+            }, Square {
+                x: 2,
+                y: 2,
+                value: Some(8),
+                num_iteration: 5
+            }, Square {
+                x: 2,
+                y: 3,
+                value: Some(2),
+                num_iteration: 5
+            }, Square {
+                x: 2,
+                y: 4,
+                value: Some(5),
+                num_iteration: 5
+            }, Square {
+                x: 2,
+                y: 5,
+                value: Some(3),
+                num_iteration: 5
+            }, Square {
+                x: 2,
+                y: 6,
+                value: Some(7),
+                num_iteration: 5
+            }, Square {
+                x: 2,
+                y: 7,
+                value: Some(4),
+                num_iteration: 5
+            }, Square {
+                x: 2,
+                y: 8,
+                value: Some(9),
+                num_iteration: 0
+            }, Square {
+                x: 3,
+                y: 0,
+                value: Some(8),
+                num_iteration: 6
+            }, Square {
+                x: 3,
+                y: 1,
+                value: Some(7),
+                num_iteration: 0
+            }, Square {
+                x: 3,
+                y: 2,
+                value: Some(2),
+                num_iteration: 6
+            }, Square {
+                x: 3,
+                y: 3,
+                value: Some(4),
+                num_iteration: 0
+            }, Square {
+                x: 3,
+                y: 4,
+                value: Some(3),
+                num_iteration: 5
+            }, Square {
+                x: 3,
+                y: 5,
+                value: Some(5),
+                num_iteration: 0
+            }, Square {
+                x: 3,
+                y: 6,
+                value: Some(9),
+                num_iteration: 6
+            }, Square {
+                x: 3,
+                y: 7,
+                value: Some(1),
+                num_iteration: 0
+            }, Square {
+                x: 3,
+                y: 8,
+                value: Some(6),
+                num_iteration: 6
+            }, Square {
+                x: 4,
+                y: 0,
+                value: Some(4),
+                num_iteration: 6
+            }, Square {
+                x: 4,
+                y: 1,
+                value: Some(9),
+                num_iteration: 6
+            }, Square {
+                x: 4,
+                y: 2,
+                value: Some(1),
+                num_iteration: 6
+            }, Square {
+                x: 4,
+                y: 3,
+                value: Some(6),
+                num_iteration: 5
+            }, Square {
+                x: 4,
+                y: 4,
+                value: Some(8),
+                num_iteration: 0
+            }, Square {
+                x: 4,
+                y: 5,
+                value: Some(7),
+                num_iteration: 5
+            }, Square {
+                x: 4,
+                y: 6,
+                value: Some(5),
+                num_iteration: 6
+            }, Square {
+                x: 4,
+                y: 7,
+                value: Some(2),
+                num_iteration: 5
+            }, Square {
+                x: 4,
+                y: 8,
+                value: Some(3),
+                num_iteration: 6
+            }, Square {
+                x: 5,
+                y: 0,
+                value: Some(5),
+                num_iteration: 6
+            }, Square {
+                x: 5,
+                y: 1,
+                value: Some(3),
+                num_iteration: 0
+            }, Square {
+                x: 5,
+                y: 2,
+                value: Some(6),
+                num_iteration: 6
+            }, Square {
+                x: 5,
+                y: 3,
+                value: Some(9),
+                num_iteration: 0
+            }, Square {
+                x: 5,
+                y: 4,
+                value: Some(2),
+                num_iteration: 5
+            }, Square {
+                x: 5,
+                y: 5,
+                value: Some(1),
+                num_iteration: 0
+            }, Square {
+                x: 5,
+                y: 6,
+                value: Some(8),
+                num_iteration: 6
+            }, Square {
+                x: 5,
+                y: 7,
+                value: Some(7),
+                num_iteration: 0
+            }, Square {
+                x: 5,
+                y: 8,
+                value: Some(4),
+                num_iteration: 6
+            }, Square {
+                x: 6,
+                y: 0,
+                value: Some(6),
+                num_iteration: 0
+            }, Square {
+                x: 6,
+                y: 1,
+                value: Some(5),
+                num_iteration: 6
+            }, Square {
+                x: 6,
+                y: 2,
+                value: Some(7),
+                num_iteration: 6
+            }, Square {
+                x: 6,
+                y: 3,
+                value: Some(8),
+                num_iteration: 6
+            }, Square {
+                x: 6,
+                y: 4,
+                value: Some(1),
+                num_iteration: 6
+            }, Square {
+                x: 6,
+                y: 5,
+                value: Some(4),
+                num_iteration: 5
+            }, Square {
+                x: 6,
+                y: 6,
+                value: Some(3),
+                num_iteration: 6
+            }, Square {
+                x: 6,
+                y: 7,
+                value: Some(9),
+                num_iteration: 5
+            }, Square {
+                x: 6,
+                y: 8,
+                value: Some(2),
+                num_iteration: 0
+            }, Square {
+                x: 7,
+                y: 0,
+                value: Some(2),
+                num_iteration: 6
+            }, Square {
+                x: 7,
+                y: 1,
+                value: Some(8),
+                num_iteration: 0
+            }, Square {
+                x: 7,
+                y: 2,
+                value: Some(4),
+                num_iteration: 6
+            }, Square {
+                x: 7,
+                y: 3,
+                value: Some(3),
+                num_iteration: 0
+            }, Square {
+                x: 7,
+                y: 4,
+                value: Some(9),
+                num_iteration: 5
+            }, Square {
+                x: 7,
+                y: 5,
+                value: Some(6),
+                num_iteration: 0
+            }, Square {
+                x: 7,
+                y: 6,
+                value: Some(1),
+                num_iteration: 5
+            }, Square {
+                x: 7,
+                y: 7,
+                value: Some(5),
+                num_iteration: 0
+            }, Square {
+                x: 7,
+                y: 8,
+                value: Some(7),
+                num_iteration: 1
+            }, Square {
+                x: 8,
+                y: 0,
+                value: Some(3),
+                num_iteration: 6
+            }, Square {
+                x: 8,
+                y: 1,
+                value: Some(1),
+                num_iteration: 6
+            }, Square {
+                x: 8,
+                y: 2,
+                value: Some(9),
+                num_iteration: 0
+            }, Square {
+                x: 8,
+                y: 3,
+                value: Some(5),
+                num_iteration: 6
+            }, Square {
+                x: 8,
+                y: 4,
+                value: Some(7),
+                num_iteration: 6
+            }, Square {
+                x: 8,
+                y: 5,
+                value: Some(2),
+                num_iteration: 5
+            }, Square {
+                x: 8,
+                y: 6,
+                value: Some(4),
+                num_iteration: 0
+            }, Square {
+                x: 8,
+                y: 7,
+                value: Some(6),
+                num_iteration: 5
+            }, Square {
+                x: 8,
+                y: 8,
+                value: Some(8),
+                num_iteration: 6
+            }]
+        };
+        let mut board = convert(board_response);
+        solve(&mut board, true, 0);
+        assert_eq!(result, board);
+    }
 }
