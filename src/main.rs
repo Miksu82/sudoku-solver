@@ -2,6 +2,8 @@ extern crate reqwest;
 extern crate serde_json;
 extern crate serde;
 extern crate array_tool;
+#[macro_use]
+extern crate lazy_static;
 //use std::collections::HashMap;
 
 use std::str::FromStr;
@@ -9,7 +11,36 @@ use std::fmt::Display;
 use serde::{Deserialize, Deserializer};
 use array_tool::vec::Intersect;
 
-const ALL :[u8; 9] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+lazy_static! {
+    static ref OFFSET : [[([usize; 3], [usize; 3]); 9]; 9] = {
+
+        let mut arr = [[([0; 3], [0; 3]); 9]; 9];
+        for x in 0..9 {
+            for y in 0..9 {
+                let offset = get_offset(x, y);
+                let possible_x = offset.0.into_iter()
+                    .map(|x_offset| (*x_offset + x as i8) as usize)
+                    .collect::<Vec<_>>();
+                let possible_y = offset.1.into_iter()
+                    .map(|y_offset| (*y_offset + y as i8) as usize)
+                    .collect::<Vec<_>>();
+
+                for (index, val) in possible_x.iter().enumerate() {
+                    arr[x][y].0[index] = *val;
+                }
+
+                for (index, val) in possible_y.iter().enumerate() {
+                    arr[x][y].1[index] = *val;
+                }
+            }
+        }
+        arr
+    };
+}
+
+const ALL :[Option<u8>; 9] = [Some(1), Some(2), Some(3), Some(4), Some(5), Some(6), Some(7), Some(8), Some(9)];
+
+
 
 #[derive(Deserialize, Debug)]
 struct SquareResponse {
@@ -173,7 +204,7 @@ fn convertToBoardAsArray(response: BoardResponse) -> BoardAsArray {
 }
 
 fn solve2(squares: &mut [[Option<SimpleSquare>; 9]; 9], num_iteration: u32) -> bool {
-    let mut all_possible_values: Vec<(usize, usize, Vec<&u8>)> = Vec::new();
+    let mut all_possible_values: Vec<(usize, usize, Vec<u8>)> = Vec::new();
     for x in 0..9 {
         for y in 0..9 {
             if squares[x][y].is_none() {
@@ -196,7 +227,7 @@ fn solve2(squares: &mut [[Option<SimpleSquare>; 9]; 9], num_iteration: u32) -> b
         let y = less_possible_values.1;
         let value = less_possible_values.2[0];
         squares[x][y] = Some(SimpleSquare {
-            value: *value,
+            value: value,
             num_iteration: num_iteration,
         });
 
@@ -211,7 +242,7 @@ fn solve2(squares: &mut [[Option<SimpleSquare>; 9]; 9], num_iteration: u32) -> b
         let next_iteration = if is_last {num_iteration} else {num_iteration + 1};
 
          squares[x][y] = Some(SimpleSquare {
-            value: **possible_value,
+            value: *possible_value,
             num_iteration: next_iteration,
         });
 
@@ -234,181 +265,54 @@ fn solve2(squares: &mut [[Option<SimpleSquare>; 9]; 9], num_iteration: u32) -> b
     return false;
 }
 
-fn find_value2(squares: &mut [[Option<SimpleSquare>; 9]; 9], x: usize, y: usize) -> Vec<&'static u8> {
+fn remove_value(vector: &mut Vec<u8>, value: u8) {
+    let index = vector.iter().position(|x| *x == value);
+    if index.is_some() {
+        vector.remove(index.unwrap());
+    }
+}
 
-    let mut miss_x : Vec<u8> = Vec::new();
+fn find_value2(squares: &mut [[Option<SimpleSquare>; 9]; 9], x: usize, y: usize) -> Vec<u8> {
+
+    let mut miss_x : [Option<u8>; 9] = [None; 9];
+    miss_x.copy_from_slice(&ALL);
+
     for y2 in 0..9 {
-        if squares[x][y2].is_some() {
-            miss_x.push(squares[x][y2].unwrap().value)
+        let square = squares[x][y2];
+        if square.is_some() {
+            miss_x[(square.unwrap().value - 1) as usize] = None;
         }
     }
 
-    let miss_x2 : Vec<&u8> = ALL.iter()
-                .filter(|value| miss_x.iter().find(|c| c == value).is_none())
-                .collect();
-
-    let mut miss_y : Vec<u8> = Vec::new();
+    //let mut miss_y = ALL.to_vec();
     for x2 in 0..9 {
-        if squares[x2][y].is_some() {
-            miss_y.push(squares[x2][y].unwrap().value)
+        let square = squares[x2][y];
+        if square.is_some() {
+            //let value = square.unwrap().value;
+            miss_x[(square.unwrap().value - 1) as usize] = None;
         }
     }
 
-    let miss_y2 : Vec<&u8> = ALL.iter()
-                .filter(|value| miss_y.iter().find(|c| c == value).is_none())
-                .collect();
 
 
-    let offset = get_offset(x, y);
-    let possible_x = offset.0.into_iter()
-        .map(|x_offset| (*x_offset + x as i8) as usize)
-        .collect::<Vec<_>>();
-    let possible_y = offset.1.into_iter()
-        .map(|y_offset| (*y_offset + y as i8) as usize)
-        .collect::<Vec<_>>();
-
-    let mut subset : Vec<u8> = Vec::new();
-    for x2 in 0..9 {
-        for y2 in 0..9 {
-            if squares[x2][y2].is_some() && possible_x.contains(&x2) && possible_y.contains(&y2) {
-                subset.push(squares[x2][y2].unwrap().value)
+    let offset = OFFSET[x][y];
+    //let mut miss_square = ALL.to_vec();
+    //let mut subset : Vec<u8> = Vec::new();
+    for x2 in offset.0.iter() {
+        for y2 in offset.1.iter() {
+            let square = squares[*x2][*y2];
+            if square.is_some() {
+                miss_x[(square.unwrap().value - 1) as usize] = None;
+                //if !ALL.contains(value)
+                //subset.push(square.unwrap().value)
             }
         }
     }
 
-    let miss_square = ALL.into_iter()
-                .filter(|value| subset.iter().find(|c| c == value).is_none())
-                .collect();
-
-    return miss_x2.intersect(miss_y2).intersect(miss_square);
-}
-
-
-fn solve(squares: &mut [Square; 81], num_iteration: u32) -> bool {
-
-    let mut all_possible_values: Vec<(usize, usize, Vec<&u8>)> = Vec::new();
-
-    for square in squares.iter() {
-        if square.value.is_none() {
-            let possible_values = find_value(*squares, square.x, square.y);
-            all_possible_values.push((square.x, square.y, possible_values));
-        }
-    }
-
-    if all_possible_values.len() == 0 {
-        return true;
-    }
-
-    let less_possible_values = all_possible_values.iter()
-                .min_by_key(|value| value.2.len())
-                .unwrap();
-
-    if less_possible_values.2.len() == 1 {
-        let x = less_possible_values.0;
-        let y = less_possible_values.1;
-        let value = less_possible_values.2[0];
-        let square : &mut Square = squares.iter_mut().find(|square| square.x == x && square.y == y).unwrap();
-
-        square.value = Some(*value);
-        square.num_iteration = num_iteration;
-
-
-        // for square in squares.iter_mut() {
-        //     if square.x == x && square.y == y {
-        //         square.value = Some(*value);
-        //         square.num_iteration = num_iteration;
-        //         break;
-        //     }
-        // }
-        return solve(squares, num_iteration);
-    }
-
-    let x = less_possible_values.0;
-    let y = less_possible_values.1;
-    let size = less_possible_values.2.len();
-    for (index, possible_value) in less_possible_values.2.iter().enumerate() {
-        let is_last = index == size - 1;
-        let next_iteration = if is_last {num_iteration} else {num_iteration + 1};
-
-        let square : &mut Square = squares.iter_mut().find(|square| square.x == x && square.y == y).unwrap();
-
-        square.value = Some(**possible_value);
-        square.num_iteration = next_iteration;
-        // for square in squares.iter_mut() {
-        //     if square.x == x && square.y == y {
-        //         square.value = Some(**possible_value);
-        //         square.num_iteration = next_iteration;
-        //         break;
-        //     }
-        // }
-        let is_finished = solve(squares, next_iteration);
-
-        if is_finished {
-            return true;
-        }
-
-        for square in squares.iter_mut() {
-            if square.num_iteration == next_iteration {
-                square.value = None;
-                square.num_iteration = 0;
-            }
-        }
-    }
-
-    return false;
-}
-
-fn find_value(squares: [Square; 81], x: usize, y: usize) -> Vec<&'static u8> {
-    let miss_x = missing_x(&squares, x);
-    let miss_y = missing_y(&squares, y);
-    let miss_square = miss_square(&squares, x, y);
-    return miss_x.intersect(miss_y).intersect(miss_square);
-}
-
-
-fn missing_x(squares: &[Square; 81], x: usize) -> Vec<&'static u8> {
-
-    let column = squares.iter()
-        .filter(|square| square.x == x && square.value.is_some())
-        .map(|square| square.value.unwrap())
-        .collect::<Vec<_>>();
-
-    return ALL.iter()
-                .filter(|value| column.iter().find(|c| c == value).is_none())
-                .collect();
-}
-
-fn missing_y(squares: &[Square; 81], y: usize) -> Vec<&'static u8> {
-
-    let column = squares.iter()
-        .filter(|square| square.y == y && square.value.is_some())
-        .map(|square| square.value.unwrap())
-        .collect::<Vec<_>>();
-
-    return ALL.into_iter()
-                .filter(|value| column.iter().find(|c| c == value).is_none())
-                .collect();
-}
-
-fn miss_square(squares: &[Square; 81], x: usize, y: usize) -> Vec<&'static u8> {
-    let offset = get_offset(x, y);
-    let possible_x = offset.0.into_iter()
-        .map(|x_offset| (*x_offset + x as i8) as usize)
-        .collect::<Vec<_>>();
-    let possible_y = offset.1.into_iter()
-        .map(|y_offset| (*y_offset + y as i8) as usize)
-        .collect::<Vec<_>>();
-
-    let subset = squares.iter()
-        .filter(|square| {
-            square.value.is_some() && possible_x.contains(&square.x) && possible_y.contains(&square.y)
-        })
-        .map(|square| square.value.unwrap())
-        .collect::<Vec<_>>();
-
-    return ALL.into_iter()
-                .filter(|value| subset.iter().find(|c| c == value).is_none())
-                .collect();
+    //return miss_x.intersect(miss_y).intersect(miss_square);
+    return miss_x.iter()
+            .filter_map(|x| *x)
+            .collect();
 }
 
 fn get_offset(x: usize, y: usize) -> ([i8; 3], [i8; 3]) {
@@ -1000,8 +904,10 @@ mod tests {
         let mut board = convertToBoardAsArray(board_response);
 
         time_test!();
+        println!("board = {}", board);
 
         solve2(&mut board.squares, 0);
+        println!("solved board = {}", board);
         //assert_eq!(result, board);
     }
 
@@ -1770,7 +1676,10 @@ mod tests {
 
         let mut board = convertToBoardAsArray(board_response);
         time_test!();
+        println!("board = {}", board);
+
         solve2(&mut board.squares, 0);
+        println!("solved board = {}", board);
         //assert_eq!(result, board);
     }
 }
