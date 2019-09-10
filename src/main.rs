@@ -2,45 +2,37 @@ extern crate reqwest;
 extern crate serde_json;
 extern crate serde;
 extern crate array_tool;
+
 #[macro_use]
 extern crate lazy_static;
-//use std::collections::HashMap;
 
 use std::str::FromStr;
 use std::fmt::Display;
 use serde::{Deserialize, Deserializer};
-use array_tool::vec::Intersect;
 
+const BOARD_SIZE : usize = 9;
+const DIVIDER_SIZE : usize = 3;
 lazy_static! {
-    static ref OFFSET : [[([usize; 3], [usize; 3]); 9]; 9] = {
 
-        let mut arr = [[([0; 3], [0; 3]); 9]; 9];
-        for x in 0..9 {
-            for y in 0..9 {
-                let offset = get_offset(x, y);
-                let possible_x = offset.0.into_iter()
-                    .map(|x_offset| (*x_offset + x as i8) as usize)
-                    .collect::<Vec<_>>();
-                let possible_y = offset.1.into_iter()
-                    .map(|y_offset| (*y_offset + y as i8) as usize)
-                    .collect::<Vec<_>>();
+    // Why the thing below doesn't work
+    //static ref DIVIDER_SIZE : usize = (BOARD_SIZE as f64).sqrt() as usize;
 
-                for (index, val) in possible_x.iter().enumerate() {
-                    arr[x][y].0[index] = *val;
-                }
+    static ref OFFSET : [[([usize; DIVIDER_SIZE], [usize; DIVIDER_SIZE]); BOARD_SIZE]; BOARD_SIZE] = {
 
-                for (index, val) in possible_y.iter().enumerate() {
-                    arr[x][y].1[index] = *val;
-                }
+        let mut arr = [[([0; DIVIDER_SIZE], [0; DIVIDER_SIZE]); BOARD_SIZE]; BOARD_SIZE];
+        for x in 0..BOARD_SIZE {
+            for y in 0..BOARD_SIZE {
+                let indeces_x = get_offsets(x);
+                let indeces_y = get_offsets(y);
+                arr[x][y].0 = indeces_x;
+                arr[x][y].1 = indeces_y;
             }
         }
         arr
     };
 }
 
-const ALL :[Option<u8>; 9] = [Some(1), Some(2), Some(3), Some(4), Some(5), Some(6), Some(7), Some(8), Some(9)];
-
-
+const ALL :[Option<u8>; BOARD_SIZE] = [Some(1), Some(2), Some(3), Some(4), Some(5), Some(6), Some(7), Some(8), Some(9)];
 
 #[derive(Deserialize, Debug)]
 struct SquareResponse {
@@ -59,57 +51,25 @@ struct BoardResponse {
 
 #[derive(Debug, Copy, Clone)]
 struct Square {
-    x: usize,
-    y: usize,
-    value: Option<u8>,
-    num_iteration: u32,
-}
-
-#[derive(Debug, Copy, Clone)]
-struct SimpleSquare {
     value: u8,
     num_iteration: u32,
 }
 
-// For now expect that all boards have size 9
-struct Board {
-    //squares: [[Option<u8>;  9]; 9]
-    squares: [Square; 81],
-    is_finished: bool,
-}
+type Squares = [[Option<Square>;  BOARD_SIZE]; BOARD_SIZE];
 
-#[derive(Debug, Copy, Clone)]
-struct BoardAsArray {
-    squares: [[Option<SimpleSquare>;  9]; 9]
+#[derive(Copy, Clone)]
+struct Board {
+    squares: Squares,
 }
 
 impl std::fmt::Display for Board {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(fmt, "").unwrap();
-        for y in 0..9 {
-            self.squares.into_iter()
-                .filter (|square| square.y == y)
-                .for_each(|val| {
-                    let to_write = match val.value {
-                        None => String::from(" "),
-                        Some(value) => value.to_string()
-                    };
-                    write!(fmt, "|{}", to_write).unwrap()
-                });
-            writeln!(fmt, "|").unwrap();
-        }
-        return Ok(());
-    }
-}
-
-impl std::fmt::Display for BoardAsArray {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(fmt, "").unwrap();
-        for x in 0..9 {
-            for y in 0..9 {
+        for x in 0..BOARD_SIZE {
+            for y in 0..BOARD_SIZE {
                 let to_write = match self.squares[x][y] {
                     None => String::from(" "),
-                    Some(value) => value.value.to_string()
+                    Some(square) => square.value.to_string()
                 };
                 write!(fmt, "|{}", to_write).unwrap()
             }
@@ -127,14 +87,12 @@ impl std::fmt::Debug for Board {
 
 impl PartialEq for Square {
     fn eq(&self, other: &Self) -> bool {
-        return self.x == other.x && self.y == other.y && self.value == other.value;
+        return self.value == other.value;
     }
 }
 impl PartialEq for Board {
     fn eq(&self, other: &Self) -> bool {
-        let self_as_vec: Vec<_> = self.squares.iter().collect();
-        let other_as_vec: Vec<_> = other.squares.iter().collect();
-        return self_as_vec == other_as_vec;
+        return self.squares == other.squares;
     }
 }
 
@@ -146,71 +104,47 @@ fn main() {
         .expect("Failed to get sudoku");
     println!("debug = {:#?}", board_response);
     //let mut board = convert(board_response);
-    let mut board = convertToBoardAsArray(board_response);
+    let mut board = convert(board_response);
     println!("board = {}", board);
-    solve2(&mut board.squares, 0);
+    solve(&mut board.squares, 0);
     println!("solved board = {}", board);
 }
 
 fn convert(response: BoardResponse) -> Board {
-    let empty_square = Square {
-                x: 0,
-                y: 0,
-                value: None,
-                num_iteration: 0,
-    };
-
-    let mut arr: [Square; 81] = [empty_square; 81];
-
-    for x in 0..9 {
-        for y in 0..9 {
-            arr[9*x + y] = Square {
-                x: x,
-                y: y,
-                value: None,
-                num_iteration: 0,
-            };
-        }
-    }
+    let mut squares : Squares = [[None; BOARD_SIZE]; BOARD_SIZE];
 
     for square in response.squares {
-        arr[9*square.x + square.y]= Square {
-                x: square.x,
-                y: square.y,
-                value: Some(square.value),
-                num_iteration: 0,
-            };
-    }
-
-    return Board {
-        squares: arr,
-        is_finished: false,
-    }
-}
-
-fn convertToBoardAsArray(response: BoardResponse) -> BoardAsArray {
-    let mut arr : [[Option<SimpleSquare>; 9]; 9] = [[None; 9]; 9];
-
-    for square in response.squares {
-        arr[square.x][square.y] = Some(SimpleSquare {
+        squares[square.x][square.y] = Some(Square {
             value: square.value,
             num_iteration: 0,
         })
     }
 
-    return BoardAsArray {
-        squares: arr,
+    return Board {
+        squares: squares,
     }
 }
 
-fn solve2(squares: &mut [[Option<SimpleSquare>; 9]; 9], num_iteration: u32) -> bool {
+fn solve(squares: &mut Squares, num_iteration: u32) -> bool {
     let mut all_possible_values: Vec<(usize, usize, Vec<u8>)> = Vec::new();
-    for x in 0..9 {
-        for y in 0..9 {
+
+    let mut should_finish = false;
+    for x in 0..BOARD_SIZE {
+        for y in 0..BOARD_SIZE {
             if squares[x][y].is_none() {
-                let possible_values = find_value2(squares, x, y);
+                let possible_values = find_value(squares, x, y);
+                should_finish = possible_values.len() == 1;
+
                 all_possible_values.push((x, y, possible_values));
+
+                if should_finish {
+                    break;
+                }
             }
+        }
+
+        if should_finish {
+            break;
         }
     }
 
@@ -218,20 +152,24 @@ fn solve2(squares: &mut [[Option<SimpleSquare>; 9]; 9], num_iteration: u32) -> b
         return true;
     }
 
-    let less_possible_values = all_possible_values.iter()
+    let less_possible_values = if should_finish  {
+        all_possible_values.last().unwrap()
+    } else {
+        all_possible_values.iter()
                 .min_by_key(|value| value.2.len())
-                .unwrap();
+                .unwrap()
+    };
 
     if less_possible_values.2.len() == 1 {
         let x = less_possible_values.0;
         let y = less_possible_values.1;
         let value = less_possible_values.2[0];
-        squares[x][y] = Some(SimpleSquare {
+        squares[x][y] = Some(Square {
             value: value,
             num_iteration: num_iteration,
         });
 
-        return solve2(squares, num_iteration);
+        return solve(squares, num_iteration);
     }
 
     let x = less_possible_values.0;
@@ -241,22 +179,21 @@ fn solve2(squares: &mut [[Option<SimpleSquare>; 9]; 9], num_iteration: u32) -> b
         let is_last = index == size - 1;
         let next_iteration = if is_last {num_iteration} else {num_iteration + 1};
 
-         squares[x][y] = Some(SimpleSquare {
+         squares[x][y] = Some(Square {
             value: *possible_value,
             num_iteration: next_iteration,
         });
 
-        let is_finished = solve2(squares, next_iteration);
+        let is_finished = solve(squares, next_iteration);
 
         if is_finished {
             return true;
         }
 
-        for x in 0..9 {
-            for y in 0..9 {
+        for x in 0..BOARD_SIZE {
+            for y in 0..BOARD_SIZE {
                 if squares[x][y].is_some() &&  squares[x][y].unwrap().num_iteration == next_iteration {
                     squares[x][y] = None;
-
                 }
             }
         }
@@ -265,76 +202,58 @@ fn solve2(squares: &mut [[Option<SimpleSquare>; 9]; 9], num_iteration: u32) -> b
     return false;
 }
 
-fn remove_value(vector: &mut Vec<u8>, value: u8) {
-    let index = vector.iter().position(|x| *x == value);
-    if index.is_some() {
-        vector.remove(index.unwrap());
-    }
-}
+fn find_value(squares: &mut Squares, x: usize, y: usize) -> Vec<u8> {
 
-fn find_value2(squares: &mut [[Option<SimpleSquare>; 9]; 9], x: usize, y: usize) -> Vec<u8> {
+    let mut possible_values : [Option<u8>; BOARD_SIZE] = [None; BOARD_SIZE];
+    possible_values.copy_from_slice(&ALL);
 
-    let mut miss_x : [Option<u8>; 9] = [None; 9];
-    miss_x.copy_from_slice(&ALL);
-
-    for y2 in 0..9 {
-        let square = squares[x][y2];
+    let mut set_value_if_necessary = |square: &Option<Square>| {
         if square.is_some() {
-            miss_x[(square.unwrap().value - 1) as usize] = None;
+            possible_values[(square.unwrap().value - 1) as usize] = None;
         }
+    };
+
+    for rolling_y in 0..BOARD_SIZE {
+        let square = squares[x][rolling_y];
+        set_value_if_necessary(&square);
     }
 
-    //let mut miss_y = ALL.to_vec();
-    for x2 in 0..9 {
-        let square = squares[x2][y];
-        if square.is_some() {
-            //let value = square.unwrap().value;
-            miss_x[(square.unwrap().value - 1) as usize] = None;
-        }
+    for rolling_x in 0..BOARD_SIZE {
+        let square = squares[rolling_x][y];
+        set_value_if_necessary(&square);
     }
-
-
 
     let offset = OFFSET[x][y];
-    //let mut miss_square = ALL.to_vec();
-    //let mut subset : Vec<u8> = Vec::new();
-    for x2 in offset.0.iter() {
-        for y2 in offset.1.iter() {
-            let square = squares[*x2][*y2];
-            if square.is_some() {
-                miss_x[(square.unwrap().value - 1) as usize] = None;
-                //if !ALL.contains(value)
-                //subset.push(square.unwrap().value)
-            }
+    for rolling_x in offset.0.iter() {
+        for rolling_y in offset.1.iter() {
+            let square = squares[*rolling_x][*rolling_y];
+            set_value_if_necessary(&square);
         }
     }
 
-    //return miss_x.intersect(miss_y).intersect(miss_square);
-    return miss_x.iter()
+    return possible_values.iter()
             .filter_map(|x| *x)
             .collect();
 }
 
-fn get_offset(x: usize, y: usize) -> ([i8; 3], [i8; 3]) {
-    let x_offset = match x % 3 {
-        0 => [0, 1, 2],
-        1 => [-1, 0, 1],
-        2 => [-1, 0, -2],
-        _ => panic!("Should not happen")
-    };
-    let y_offset = match y % 3 {
-        0 => [0, 1, 2],
-        1 => [-1, 0, 1],
-        2 => [-1, 0, -2],
-        _ => panic!("Should not happen")
-    };
-    return (x_offset, y_offset)
+fn get_offsets(index: usize) -> [usize; DIVIDER_SIZE] {
+    let offset = (index % DIVIDER_SIZE) as i8;
+    let rolling = 0..(DIVIDER_SIZE as i8);
+
+    let offsets = rolling.map(|value| value - offset);
+    let mut indeces : [usize; DIVIDER_SIZE] = [0; DIVIDER_SIZE];
+
+    for (i, value) in offsets.enumerate() {
+        indeces[i] = (value + index as i8) as usize;
+    }
+
+    return indeces;
 }
 
 fn make_request() -> Result<BoardResponse, reqwest::Error> {
     let client = reqwest::Client::new();
     let json = client.get("http://www.cs.utep.edu/cheon/ws/sudoku/new")
-                        .query(&[("size", "9"), ("level", "3")]) // What is &[()]
+                        .query(&[("size", BOARD_SIZE.to_string()), ("level", 3.to_string())]) // What is &[()]
                         .send()?
                         .json()?;
     return Ok(json)
@@ -492,421 +411,12 @@ mod tests {
             ],
         };
 
-        let result = Board {
-            is_finished: true,
-            squares: [Square {
-                x: 0,
-                y: 0,
-                value: Some(7),
-                num_iteration: 4
-            }, Square {
-                x: 0,
-                y: 1,
-                value: Some(2),
-                num_iteration: 3
-            }, Square {
-                x: 0,
-                y: 2,
-                value: Some(3),
-                num_iteration: 0
-            }, Square {
-                x: 0,
-                y: 3,
-                value: Some(1),
-                num_iteration: 3
-            }, Square {
-                x: 0,
-                y: 4,
-                value: Some(4),
-                num_iteration: 5
-            }, Square {
-                x: 0,
-                y: 5,
-                value: Some(9),
-                num_iteration: 5
-            }, Square {
-                x: 0,
-                y: 6,
-                value: Some(6),
-                num_iteration: 0
-            }, Square {
-                x: 0,
-                y: 7,
-                value: Some(8),
-                num_iteration: 5
-            }, Square {
-                x: 0,
-                y: 8,
-                value: Some(5),
-                num_iteration: 2
-            }, Square {
-                x: 1,
-                y: 0,
-                value: Some(9),
-                num_iteration: 3
-            }, Square {
-                x: 1,
-                y: 1,
-                value: Some(4),
-                num_iteration: 0
-            }, Square {
-                x: 1,
-                y: 2,
-                value: Some(5),
-                num_iteration: 5
-            }, Square {
-                x: 1,
-                y: 3,
-                value: Some(7),
-                num_iteration: 0
-            }, Square {
-                x: 1,
-                y: 4,
-                value: Some(6),
-                num_iteration: 5
-            }, Square {
-                x: 1,
-                y: 5,
-                value: Some(8),
-                num_iteration: 0
-            }, Square {
-                x: 1,
-                y: 6,
-                value: Some(2),
-                num_iteration: 2
-            }, Square {
-                x: 1,
-                y: 7,
-                value: Some(3),
-                num_iteration: 0
-            }, Square {
-                x: 1,
-                y: 8,
-                value: Some(1),
-                num_iteration: 1
-            }, Square {
-                x: 2,
-                y: 0,
-                value: Some(1),
-                num_iteration: 0
-            }, Square {
-                x: 2,
-                y: 1,
-                value: Some(6),
-                num_iteration: 5
-            }, Square {
-                x: 2,
-                y: 2,
-                value: Some(8),
-                num_iteration: 5
-            }, Square {
-                x: 2,
-                y: 3,
-                value: Some(2),
-                num_iteration: 5
-            }, Square {
-                x: 2,
-                y: 4,
-                value: Some(5),
-                num_iteration: 5
-            }, Square {
-                x: 2,
-                y: 5,
-                value: Some(3),
-                num_iteration: 5
-            }, Square {
-                x: 2,
-                y: 6,
-                value: Some(7),
-                num_iteration: 5
-            }, Square {
-                x: 2,
-                y: 7,
-                value: Some(4),
-                num_iteration: 5
-            }, Square {
-                x: 2,
-                y: 8,
-                value: Some(9),
-                num_iteration: 0
-            }, Square {
-                x: 3,
-                y: 0,
-                value: Some(8),
-                num_iteration: 6
-            }, Square {
-                x: 3,
-                y: 1,
-                value: Some(7),
-                num_iteration: 0
-            }, Square {
-                x: 3,
-                y: 2,
-                value: Some(2),
-                num_iteration: 6
-            }, Square {
-                x: 3,
-                y: 3,
-                value: Some(4),
-                num_iteration: 0
-            }, Square {
-                x: 3,
-                y: 4,
-                value: Some(3),
-                num_iteration: 5
-            }, Square {
-                x: 3,
-                y: 5,
-                value: Some(5),
-                num_iteration: 0
-            }, Square {
-                x: 3,
-                y: 6,
-                value: Some(9),
-                num_iteration: 6
-            }, Square {
-                x: 3,
-                y: 7,
-                value: Some(1),
-                num_iteration: 0
-            }, Square {
-                x: 3,
-                y: 8,
-                value: Some(6),
-                num_iteration: 6
-            }, Square {
-                x: 4,
-                y: 0,
-                value: Some(4),
-                num_iteration: 6
-            }, Square {
-                x: 4,
-                y: 1,
-                value: Some(9),
-                num_iteration: 6
-            }, Square {
-                x: 4,
-                y: 2,
-                value: Some(1),
-                num_iteration: 6
-            }, Square {
-                x: 4,
-                y: 3,
-                value: Some(6),
-                num_iteration: 5
-            }, Square {
-                x: 4,
-                y: 4,
-                value: Some(8),
-                num_iteration: 0
-            }, Square {
-                x: 4,
-                y: 5,
-                value: Some(7),
-                num_iteration: 5
-            }, Square {
-                x: 4,
-                y: 6,
-                value: Some(5),
-                num_iteration: 6
-            }, Square {
-                x: 4,
-                y: 7,
-                value: Some(2),
-                num_iteration: 5
-            }, Square {
-                x: 4,
-                y: 8,
-                value: Some(3),
-                num_iteration: 6
-            }, Square {
-                x: 5,
-                y: 0,
-                value: Some(5),
-                num_iteration: 6
-            }, Square {
-                x: 5,
-                y: 1,
-                value: Some(3),
-                num_iteration: 0
-            }, Square {
-                x: 5,
-                y: 2,
-                value: Some(6),
-                num_iteration: 6
-            }, Square {
-                x: 5,
-                y: 3,
-                value: Some(9),
-                num_iteration: 0
-            }, Square {
-                x: 5,
-                y: 4,
-                value: Some(2),
-                num_iteration: 5
-            }, Square {
-                x: 5,
-                y: 5,
-                value: Some(1),
-                num_iteration: 0
-            }, Square {
-                x: 5,
-                y: 6,
-                value: Some(8),
-                num_iteration: 6
-            }, Square {
-                x: 5,
-                y: 7,
-                value: Some(7),
-                num_iteration: 0
-            }, Square {
-                x: 5,
-                y: 8,
-                value: Some(4),
-                num_iteration: 6
-            }, Square {
-                x: 6,
-                y: 0,
-                value: Some(6),
-                num_iteration: 0
-            }, Square {
-                x: 6,
-                y: 1,
-                value: Some(5),
-                num_iteration: 6
-            }, Square {
-                x: 6,
-                y: 2,
-                value: Some(7),
-                num_iteration: 6
-            }, Square {
-                x: 6,
-                y: 3,
-                value: Some(8),
-                num_iteration: 6
-            }, Square {
-                x: 6,
-                y: 4,
-                value: Some(1),
-                num_iteration: 6
-            }, Square {
-                x: 6,
-                y: 5,
-                value: Some(4),
-                num_iteration: 5
-            }, Square {
-                x: 6,
-                y: 6,
-                value: Some(3),
-                num_iteration: 6
-            }, Square {
-                x: 6,
-                y: 7,
-                value: Some(9),
-                num_iteration: 5
-            }, Square {
-                x: 6,
-                y: 8,
-                value: Some(2),
-                num_iteration: 0
-            }, Square {
-                x: 7,
-                y: 0,
-                value: Some(2),
-                num_iteration: 6
-            }, Square {
-                x: 7,
-                y: 1,
-                value: Some(8),
-                num_iteration: 0
-            }, Square {
-                x: 7,
-                y: 2,
-                value: Some(4),
-                num_iteration: 6
-            }, Square {
-                x: 7,
-                y: 3,
-                value: Some(3),
-                num_iteration: 0
-            }, Square {
-                x: 7,
-                y: 4,
-                value: Some(9),
-                num_iteration: 5
-            }, Square {
-                x: 7,
-                y: 5,
-                value: Some(6),
-                num_iteration: 0
-            }, Square {
-                x: 7,
-                y: 6,
-                value: Some(1),
-                num_iteration: 5
-            }, Square {
-                x: 7,
-                y: 7,
-                value: Some(5),
-                num_iteration: 0
-            }, Square {
-                x: 7,
-                y: 8,
-                value: Some(7),
-                num_iteration: 1
-            }, Square {
-                x: 8,
-                y: 0,
-                value: Some(3),
-                num_iteration: 6
-            }, Square {
-                x: 8,
-                y: 1,
-                value: Some(1),
-                num_iteration: 6
-            }, Square {
-                x: 8,
-                y: 2,
-                value: Some(9),
-                num_iteration: 0
-            }, Square {
-                x: 8,
-                y: 3,
-                value: Some(5),
-                num_iteration: 6
-            }, Square {
-                x: 8,
-                y: 4,
-                value: Some(7),
-                num_iteration: 6
-            }, Square {
-                x: 8,
-                y: 5,
-                value: Some(2),
-                num_iteration: 5
-            }, Square {
-                x: 8,
-                y: 6,
-                value: Some(4),
-                num_iteration: 0
-            }, Square {
-                x: 8,
-                y: 7,
-                value: Some(6),
-                num_iteration: 5
-            }, Square {
-                x: 8,
-                y: 8,
-                value: Some(8),
-                num_iteration: 6
-            }]
-        };
-        let mut board = convertToBoardAsArray(board_response);
+        let mut board = convert(board_response);
 
         time_test!();
         println!("board = {}", board);
 
-        solve2(&mut board.squares, 0);
+        solve(&mut board.squares, 0);
         println!("solved board = {}", board);
         //assert_eq!(result, board);
     }
@@ -1020,665 +530,11 @@ mod tests {
     ],
 };
 
-        let result = Board {
-            is_finished: true,
-            squares: [
-                Square {
-                    x: 0,
-                    y: 0,
-                    value: Some(
-                        4,
-                    ),
-                    num_iteration: 8,
-                },
-                Square {
-                    x: 0,
-                    y: 1,
-                    value: Some(
-                        6,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 0,
-                    y: 2,
-                    value: Some(
-                        1,
-                    ),
-                    num_iteration: 8,
-                },
-                Square {
-                    x: 0,
-                    y: 3,
-                    value: Some(
-                        2,
-                    ),
-                    num_iteration: 10,
-                },
-                Square {
-                    x: 0,
-                    y: 4,
-                    value: Some(
-                        7,
-                    ),
-                    num_iteration: 11,
-                },
-                Square {
-                    x: 0,
-                    y: 5,
-                    value: Some(
-                        3,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 0,
-                    y: 6,
-                    value: Some(
-                        5,
-                    ),
-                    num_iteration: 2,
-                },
-                Square {
-                    x: 0,
-                    y: 7,
-                    value: Some(
-                        8,
-                    ),
-                    num_iteration: 12,
-                },
-                Square {
-                    x: 0,
-                    y: 8,
-                    value: Some(
-                        9,
-                    ),
-                    num_iteration: 12,
-                },
-                Square {
-                    x: 1,
-                    y: 0,
-                    value: Some(
-                        7,
-                    ),
-                    num_iteration: 8,
-                },
-                Square {
-                    x: 1,
-                    y: 1,
-                    value: Some(
-                        2,
-                    ),
-                    num_iteration: 7,
-                },
-                Square {
-                    x: 1,
-                    y: 2,
-                    value: Some(
-                        8,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 1,
-                    y: 3,
-                    value: Some(
-                        9,
-                    ),
-                    num_iteration: 9,
-                },
-                Square {
-                    x: 1,
-                    y: 4,
-                    value: Some(
-                        5,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 1,
-                    y: 5,
-                    value: Some(
-                        4,
-                    ),
-                    num_iteration: 9,
-                },
-                Square {
-                    x: 1,
-                    y: 6,
-                    value: Some(
-                        1,
-                    ),
-                    num_iteration: 1,
-                },
-                Square {
-                    x: 1,
-                    y: 7,
-                    value: Some(
-                        3,
-                    ),
-                    num_iteration: 9,
-                },
-                Square {
-                    x: 1,
-                    y: 8,
-                    value: Some(
-                        6,
-                    ),
-                    num_iteration: 9,
-                },
-                Square {
-                    x: 2,
-                    y: 0,
-                    value: Some(
-                        9,
-                    ),
-                    num_iteration: 6,
-                },
-                Square {
-                    x: 2,
-                    y: 1,
-                    value: Some(
-                        5,
-                    ),
-                    num_iteration: 8,
-                },
-                Square {
-                    x: 2,
-                    y: 2,
-                    value: Some(
-                        3,
-                    ),
-                    num_iteration: 8,
-                },
-                Square {
-                    x: 2,
-                    y: 3,
-                    value: Some(
-                        1,
-                    ),
-                    num_iteration: 13,
-                },
-                Square {
-                    x: 2,
-                    y: 4,
-                    value: Some(
-                        8,
-                    ),
-                    num_iteration: 12,
-                },
-                Square {
-                    x: 2,
-                    y: 5,
-                    value: Some(
-                        6,
-                    ),
-                    num_iteration: 13,
-                },
-                Square {
-                    x: 2,
-                    y: 6,
-                    value: Some(
-                        4,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 2,
-                    y: 7,
-                    value: Some(
-                        7,
-                    ),
-                    num_iteration: 12,
-                },
-                Square {
-                    x: 2,
-                    y: 8,
-                    value: Some(
-                        2,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 3,
-                    y: 0,
-                    value: Some(
-                        5,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 3,
-                    y: 1,
-                    value: Some(
-                        1,
-                    ),
-                    num_iteration: 14,
-                },
-                Square {
-                    x: 3,
-                    y: 2,
-                    value: Some(
-                        2,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 3,
-                    y: 3,
-                    value: Some(
-                        6,
-                    ),
-                    num_iteration: 15,
-                },
-                Square {
-                    x: 3,
-                    y: 4,
-                    value: Some(
-                        3,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 3,
-                    y: 5,
-                    value: Some(
-                        7,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 3,
-                    y: 6,
-                    value: Some(
-                        9,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 3,
-                    y: 7,
-                    value: Some(
-                        4,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 3,
-                    y: 8,
-                    value: Some(
-                        8,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 4,
-                    y: 0,
-                    value: Some(
-                        6,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 4,
-                    y: 1,
-                    value: Some(
-                        9,
-                    ),
-                    num_iteration: 14,
-                },
-                Square {
-                    x: 4,
-                    y: 2,
-                    value: Some(
-                        7,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 4,
-                    y: 3,
-                    value: Some(
-                        8,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 4,
-                    y: 4,
-                    value: Some(
-                        4,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 4,
-                    y: 5,
-                    value: Some(
-                        1,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 4,
-                    y: 6,
-                    value: Some(
-                        3,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 4,
-                    y: 7,
-                    value: Some(
-                        2,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 4,
-                    y: 8,
-                    value: Some(
-                        5,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 5,
-                    y: 0,
-                    value: Some(
-                        8,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 5,
-                    y: 1,
-                    value: Some(
-                        3,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 5,
-                    y: 2,
-                    value: Some(
-                        4,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 5,
-                    y: 3,
-                    value: Some(
-                        5,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 5,
-                    y: 4,
-                    value: Some(
-                        2,
-                    ),
-                    num_iteration: 17,
-                },
-                Square {
-                    x: 5,
-                    y: 5,
-                    value: Some(
-                        9,
-                    ),
-                    num_iteration: 17,
-                },
-                Square {
-                    x: 5,
-                    y: 6,
-                    value: Some(
-                        6,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 5,
-                    y: 7,
-                    value: Some(
-                        1,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 5,
-                    y: 8,
-                    value: Some(
-                        7,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 6,
-                    y: 0,
-                    value: Some(
-                        2,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 6,
-                    y: 1,
-                    value: Some(
-                        7,
-                    ),
-                    num_iteration: 8,
-                },
-                Square {
-                    x: 6,
-                    y: 2,
-                    value: Some(
-                        6,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 6,
-                    y: 3,
-                    value: Some(
-                        4,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 6,
-                    y: 4,
-                    value: Some(
-                        1,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 6,
-                    y: 5,
-                    value: Some(
-                        5,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 6,
-                    y: 6,
-                    value: Some(
-                        8,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 6,
-                    y: 7,
-                    value: Some(
-                        9,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 6,
-                    y: 8,
-                    value: Some(
-                        3,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 7,
-                    y: 0,
-                    value: Some(
-                        3,
-                    ),
-                    num_iteration: 6,
-                },
-                Square {
-                    x: 7,
-                    y: 1,
-                    value: Some(
-                        4,
-                    ),
-                    num_iteration: 5,
-                },
-                Square {
-                    x: 7,
-                    y: 2,
-                    value: Some(
-                        9,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 7,
-                    y: 3,
-                    value: Some(
-                        7,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 7,
-                    y: 4,
-                    value: Some(
-                        6,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 7,
-                    y: 5,
-                    value: Some(
-                        8,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 7,
-                    y: 6,
-                    value: Some(
-                        2,
-                    ),
-                    num_iteration: 3,
-                },
-                Square {
-                    x: 7,
-                    y: 7,
-                    value: Some(
-                        5,
-                    ),
-                    num_iteration: 4,
-                },
-                Square {
-                    x: 7,
-                    y: 8,
-                    value: Some(
-                        1,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 8,
-                    y: 0,
-                    value: Some(
-                        1,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 8,
-                    y: 1,
-                    value: Some(
-                        8,
-                    ),
-                    num_iteration: 8,
-                },
-                Square {
-                    x: 8,
-                    y: 2,
-                    value: Some(
-                        5,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 8,
-                    y: 3,
-                    value: Some(
-                        3,
-                    ),
-                    num_iteration: 10,
-                },
-                Square {
-                    x: 8,
-                    y: 4,
-                    value: Some(
-                        9,
-                    ),
-                    num_iteration: 17,
-                },
-                Square {
-                    x: 8,
-                    y: 5,
-                    value: Some(
-                        2,
-                    ),
-                    num_iteration: 17,
-                },
-                Square {
-                    x: 8,
-                    y: 6,
-                    value: Some(
-                        7,
-                    ),
-                    num_iteration: 0,
-                },
-                Square {
-                    x: 8,
-                    y: 7,
-                    value: Some(
-                        6,
-                    ),
-                    num_iteration: 16,
-                },
-                Square {
-                    x: 8,
-                    y: 8,
-                    value: Some(
-                        4,
-                    ),
-                    num_iteration: 0,
-                },
-            ]
-        };
-
-        let mut board = convertToBoardAsArray(board_response);
+        let mut board = convert(board_response);
         time_test!();
         println!("board = {}", board);
 
-        solve2(&mut board.squares, 0);
+        solve(&mut board.squares, 0);
         println!("solved board = {}", board);
         //assert_eq!(result, board);
     }
