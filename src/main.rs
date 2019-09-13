@@ -1,17 +1,17 @@
-extern crate reqwest;
-extern crate serde_json;
-extern crate serde;
 extern crate array_tool;
+extern crate reqwest;
+extern crate serde;
+extern crate serde_json;
 
 #[macro_use]
 extern crate lazy_static;
 
-use std::str::FromStr;
-use std::fmt::Display;
 use serde::{Deserialize, Deserializer};
+use std::fmt::Display;
+use std::str::FromStr;
 
-const BOARD_SIZE : usize = 9;
-const DIVIDER_SIZE : usize = 3;
+const BOARD_SIZE: usize = 9;
+const DIVIDER_SIZE: usize = 3;
 lazy_static! {
 
     // Why this doesn't work
@@ -32,7 +32,17 @@ lazy_static! {
     };
 }
 
-const ALL :[Option<u8>; BOARD_SIZE] = [Some(1), Some(2), Some(3), Some(4), Some(5), Some(6), Some(7), Some(8), Some(9)];
+const ALL: [Option<u8>; BOARD_SIZE] = [
+    Some(1),
+    Some(2),
+    Some(3),
+    Some(4),
+    Some(5),
+    Some(6),
+    Some(7),
+    Some(8),
+    Some(9),
+];
 
 #[derive(Deserialize, Debug)]
 struct SquareResponse {
@@ -55,7 +65,7 @@ struct Square {
     num_iteration: u32,
 }
 
-type Squares = [[Option<Square>;  BOARD_SIZE]; BOARD_SIZE];
+type Squares = [[Option<Square>; BOARD_SIZE]; BOARD_SIZE];
 
 #[derive(Copy, Clone)]
 struct Board {
@@ -69,7 +79,7 @@ impl std::fmt::Display for Board {
             for y in 0..BOARD_SIZE {
                 let to_write = match self.squares[x][y] {
                     None => String::from(" "),
-                    Some(square) => square.value.to_string()
+                    Some(square) => square.value.to_string(),
                 };
                 write!(fmt, "|{}", to_write).unwrap()
             }
@@ -96,12 +106,10 @@ impl PartialEq for Board {
     }
 }
 
-
 fn main() {
     println!("Sudoku solver");
 
-    let board_response = make_request()
-        .expect("Failed to get sudoku");
+    let board_response = make_request().expect("Failed to get sudoku");
     let mut board = convert(board_response);
     println!("board = {}", board);
     solve(&mut board.squares, 0);
@@ -109,7 +117,7 @@ fn main() {
 }
 
 fn convert(response: BoardResponse) -> Board {
-    let mut squares : Squares = [[None; BOARD_SIZE]; BOARD_SIZE];
+    let mut squares: Squares = [[None; BOARD_SIZE]; BOARD_SIZE];
 
     for square in response.squares {
         squares[square.x][square.y] = Some(Square {
@@ -118,9 +126,7 @@ fn convert(response: BoardResponse) -> Board {
         })
     }
 
-    return Board {
-        squares: squares,
-    }
+    return Board { squares: squares };
 }
 
 fn solve(squares: &mut Squares, num_iteration: u32) -> bool {
@@ -150,12 +156,13 @@ fn solve(squares: &mut Squares, num_iteration: u32) -> bool {
         return true;
     }
 
-    let less_possible_values = if should_finish  {
+    let less_possible_values = if should_finish {
         all_possible_values.last().unwrap()
     } else {
-        all_possible_values.iter()
-                .min_by_key(|value| value.2.len())
-                .unwrap()
+        all_possible_values
+            .iter()
+            .min_by_key(|value| value.2.len())
+            .unwrap()
     };
 
     if less_possible_values.2.len() == 1 {
@@ -175,9 +182,13 @@ fn solve(squares: &mut Squares, num_iteration: u32) -> bool {
     let size = less_possible_values.2.len();
     for (index, possible_value) in less_possible_values.2.iter().enumerate() {
         let is_last = index == size - 1;
-        let next_iteration = if is_last {num_iteration} else {num_iteration + 1};
+        let next_iteration = if is_last {
+            num_iteration
+        } else {
+            num_iteration + 1
+        };
 
-         squares[x][y] = Some(Square {
+        squares[x][y] = Some(Square {
             value: *possible_value,
             num_iteration: next_iteration,
         });
@@ -190,7 +201,8 @@ fn solve(squares: &mut Squares, num_iteration: u32) -> bool {
 
         for x in 0..BOARD_SIZE {
             for y in 0..BOARD_SIZE {
-                if squares[x][y].is_some() &&  squares[x][y].unwrap().num_iteration == next_iteration {
+                if squares[x][y].is_some() && squares[x][y].unwrap().num_iteration == next_iteration
+                {
                     squares[x][y] = None;
                 }
             }
@@ -201,8 +213,7 @@ fn solve(squares: &mut Squares, num_iteration: u32) -> bool {
 }
 
 fn find_value(squares: &mut Squares, x: usize, y: usize) -> Vec<u8> {
-
-    let mut possible_values : [Option<u8>; BOARD_SIZE] = [None; BOARD_SIZE];
+    let mut possible_values: [Option<u8>; BOARD_SIZE] = [None; BOARD_SIZE];
     possible_values.copy_from_slice(&ALL);
 
     let mut set_value_if_necessary = |square: &Option<Square>| {
@@ -229,9 +240,7 @@ fn find_value(squares: &mut Squares, x: usize, y: usize) -> Vec<u8> {
         }
     }
 
-    return possible_values.iter()
-            .filter_map(|x| *x)
-            .collect();
+    return possible_values.iter().filter_map(|x| *x).collect();
 }
 
 fn get_offsets(index: usize) -> [usize; DIVIDER_SIZE] {
@@ -239,7 +248,7 @@ fn get_offsets(index: usize) -> [usize; DIVIDER_SIZE] {
     let rolling = 0..(DIVIDER_SIZE as i8);
 
     let offsets = rolling.map(|value| value - offset);
-    let mut indeces : [usize; DIVIDER_SIZE] = [0; DIVIDER_SIZE];
+    let mut indeces: [usize; DIVIDER_SIZE] = [0; DIVIDER_SIZE];
 
     for (i, value) in offsets.enumerate() {
         indeces[i] = (value + index as i8) as usize;
@@ -250,18 +259,20 @@ fn get_offsets(index: usize) -> [usize; DIVIDER_SIZE] {
 
 fn make_request() -> Result<BoardResponse, reqwest::Error> {
     let client = reqwest::Client::new();
-    let json = client.get("http://www.cs.utep.edu/cheon/ws/sudoku/new")
-                        .query(&[("size", BOARD_SIZE.to_string()), ("level", 3.to_string())]) // What is &[()]
-                        .send()?
-                        .json()?;
-    return Ok(json)
+    let json = client
+        .get("http://www.cs.utep.edu/cheon/ws/sudoku/new")
+        .query(&[("size", BOARD_SIZE.to_string()), ("level", 3.to_string())]) // What is &[()]
+        .send()?
+        .json()?;
+    return Ok(json);
 }
 
 // I don't know what this does. Taken from https://github.com/serde-rs/json/issues/317
 fn from_str<'de, T, D>(deserializer: D) -> Result<T, D::Error>
-    where T: FromStr,
-          T::Err: Display,
-          D: Deserializer<'de>
+where
+    T: FromStr,
+    T::Err: Display,
+    D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
     T::from_str(&s).map_err(serde::de::Error::custom)
@@ -411,512 +422,349 @@ mod tests {
 
         let expected_board = Board {
             squares: [
-    [
-        Some(
-            Square {
-                value: 7,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 2,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 3,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 1,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 4,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 9,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 6,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 8,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 5,
-                num_iteration: 2,
-            },
-        ),
-    ],
-    [
-        Some(
-            Square {
-                value: 9,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 4,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 5,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 7,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 6,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 8,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 2,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 3,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 1,
-                num_iteration: 1,
-            },
-        ),
-    ],
-    [
-        Some(
-            Square {
-                value: 1,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 6,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 8,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 2,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 5,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 3,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 7,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 4,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 9,
-                num_iteration: 0,
-            },
-        ),
-    ],
-    [
-        Some(
-            Square {
-                value: 8,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 7,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 2,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 4,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 3,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 5,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 9,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 1,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 6,
-                num_iteration: 3,
-            },
-        ),
-    ],
-    [
-        Some(
-            Square {
-                value: 4,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 9,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 1,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 6,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 8,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 7,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 5,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 2,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 3,
-                num_iteration: 3,
-            },
-        ),
-    ],
-    [
-        Some(
-            Square {
-                value: 5,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 3,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 6,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 9,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 2,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 1,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 8,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 7,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 4,
-                num_iteration: 3,
-            },
-        ),
-    ],
-    [
-        Some(
-            Square {
-                value: 6,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 5,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 7,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 8,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 1,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 4,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 3,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 9,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 2,
-                num_iteration: 0,
-            },
-        ),
-    ],
-    [
-        Some(
-            Square {
-                value: 2,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 8,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 4,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 3,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 9,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 6,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 1,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 5,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 7,
-                num_iteration: 1,
-            },
-        ),
-    ],
-    [
-        Some(
-            Square {
-                value: 3,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 1,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 9,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 5,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 7,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 2,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 4,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 6,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 8,
-                num_iteration: 3,
-            },
-        ),
-    ],
-]
-
+                [
+                    Some(Square {
+                        value: 7,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 2,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 3,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 1,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 4,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 9,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 6,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 8,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 5,
+                        num_iteration: 2,
+                    }),
+                ],
+                [
+                    Some(Square {
+                        value: 9,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 4,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 5,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 7,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 6,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 8,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 2,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 3,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 1,
+                        num_iteration: 1,
+                    }),
+                ],
+                [
+                    Some(Square {
+                        value: 1,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 6,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 8,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 2,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 5,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 3,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 7,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 4,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 9,
+                        num_iteration: 0,
+                    }),
+                ],
+                [
+                    Some(Square {
+                        value: 8,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 7,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 2,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 4,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 3,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 5,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 9,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 1,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 6,
+                        num_iteration: 3,
+                    }),
+                ],
+                [
+                    Some(Square {
+                        value: 4,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 9,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 1,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 6,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 8,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 7,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 5,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 2,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 3,
+                        num_iteration: 3,
+                    }),
+                ],
+                [
+                    Some(Square {
+                        value: 5,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 3,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 6,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 9,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 2,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 1,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 8,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 7,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 4,
+                        num_iteration: 3,
+                    }),
+                ],
+                [
+                    Some(Square {
+                        value: 6,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 5,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 7,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 8,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 1,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 4,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 3,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 9,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 2,
+                        num_iteration: 0,
+                    }),
+                ],
+                [
+                    Some(Square {
+                        value: 2,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 8,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 4,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 3,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 9,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 6,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 1,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 5,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 7,
+                        num_iteration: 1,
+                    }),
+                ],
+                [
+                    Some(Square {
+                        value: 3,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 1,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 9,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 5,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 7,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 2,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 4,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 6,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 8,
+                        num_iteration: 3,
+                    }),
+                ],
+            ],
         };
 
         let mut board = convert(board_response);
@@ -930,620 +778,458 @@ mod tests {
     #[test]
     fn test_may_take_long_time_to_solve() {
         let board_response = BoardResponse {
-    response: true,
-    size: 9,
-    squares: vec![
-        SquareResponse {
-            x: 0,
-            y: 1,
-            value: 6,
-        },
-        SquareResponse {
-            x: 0,
-            y: 5,
-            value: 3,
-        },
-        SquareResponse {
-            x: 1,
-            y: 2,
-            value: 8,
-        },
-        SquareResponse {
-            x: 1,
-            y: 4,
-            value: 5,
-        },
-        SquareResponse {
-            x: 2,
-            y: 6,
-            value: 4,
-        },
-        SquareResponse {
-            x: 2,
-            y: 8,
-            value: 2,
-        },
-        SquareResponse {
-            x: 3,
-            y: 0,
-            value: 5,
-        },
-        SquareResponse {
-            x: 4,
-            y: 4,
-            value: 4,
-        },
-        SquareResponse {
-            x: 4,
-            y: 6,
-            value: 3,
-        },
-        SquareResponse {
-            x: 5,
-            y: 1,
-            value: 3,
-        },
-        SquareResponse {
-            x: 5,
-            y: 2,
-            value: 4,
-        },
-        SquareResponse {
-            x: 5,
-            y: 7,
-            value: 1,
-        },
-        SquareResponse {
-            x: 6,
-            y: 5,
-            value: 5,
-        },
-        SquareResponse {
-            x: 6,
-            y: 8,
-            value: 3,
-        },
-        SquareResponse {
-            x: 7,
-            y: 2,
-            value: 9,
-        },
-        SquareResponse {
-            x: 7,
-            y: 3,
-            value: 7,
-        },
-        SquareResponse {
-            x: 7,
-            y: 4,
-            value: 6,
-        },
-        SquareResponse {
-            x: 8,
-            y: 0,
-            value: 1,
-        },
-        SquareResponse {
-            x: 8,
-            y: 6,
-            value: 7,
-        },
-        SquareResponse {
-            x: 8,
-            y: 8,
-            value: 4,
-        },
-    ],
-};
+            response: true,
+            size: 9,
+            squares: vec![
+                SquareResponse {
+                    x: 0,
+                    y: 1,
+                    value: 6,
+                },
+                SquareResponse {
+                    x: 0,
+                    y: 5,
+                    value: 3,
+                },
+                SquareResponse {
+                    x: 1,
+                    y: 2,
+                    value: 8,
+                },
+                SquareResponse {
+                    x: 1,
+                    y: 4,
+                    value: 5,
+                },
+                SquareResponse {
+                    x: 2,
+                    y: 6,
+                    value: 4,
+                },
+                SquareResponse {
+                    x: 2,
+                    y: 8,
+                    value: 2,
+                },
+                SquareResponse {
+                    x: 3,
+                    y: 0,
+                    value: 5,
+                },
+                SquareResponse {
+                    x: 4,
+                    y: 4,
+                    value: 4,
+                },
+                SquareResponse {
+                    x: 4,
+                    y: 6,
+                    value: 3,
+                },
+                SquareResponse {
+                    x: 5,
+                    y: 1,
+                    value: 3,
+                },
+                SquareResponse {
+                    x: 5,
+                    y: 2,
+                    value: 4,
+                },
+                SquareResponse {
+                    x: 5,
+                    y: 7,
+                    value: 1,
+                },
+                SquareResponse {
+                    x: 6,
+                    y: 5,
+                    value: 5,
+                },
+                SquareResponse {
+                    x: 6,
+                    y: 8,
+                    value: 3,
+                },
+                SquareResponse {
+                    x: 7,
+                    y: 2,
+                    value: 9,
+                },
+                SquareResponse {
+                    x: 7,
+                    y: 3,
+                    value: 7,
+                },
+                SquareResponse {
+                    x: 7,
+                    y: 4,
+                    value: 6,
+                },
+                SquareResponse {
+                    x: 8,
+                    y: 0,
+                    value: 1,
+                },
+                SquareResponse {
+                    x: 8,
+                    y: 6,
+                    value: 7,
+                },
+                SquareResponse {
+                    x: 8,
+                    y: 8,
+                    value: 4,
+                },
+            ],
+        };
 
-let expected_board = Board {
-    squares: [
-    [
-        Some(
-            Square {
-                value: 4,
-                num_iteration: 8,
-            },
-        ),
-        Some(
-            Square {
-                value: 6,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 1,
-                num_iteration: 8,
-            },
-        ),
-        Some(
-            Square {
-                value: 2,
-                num_iteration: 10,
-            },
-        ),
-        Some(
-            Square {
-                value: 7,
-                num_iteration: 11,
-            },
-        ),
-        Some(
-            Square {
-                value: 3,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 5,
-                num_iteration: 2,
-            },
-        ),
-        Some(
-            Square {
-                value: 8,
-                num_iteration: 12,
-            },
-        ),
-        Some(
-            Square {
-                value: 9,
-                num_iteration: 12,
-            },
-        ),
-    ],
-    [
-        Some(
-            Square {
-                value: 7,
-                num_iteration: 8,
-            },
-        ),
-        Some(
-            Square {
-                value: 2,
-                num_iteration: 7,
-            },
-        ),
-        Some(
-            Square {
-                value: 8,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 9,
-                num_iteration: 9,
-            },
-        ),
-        Some(
-            Square {
-                value: 5,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 4,
-                num_iteration: 9,
-            },
-        ),
-        Some(
-            Square {
-                value: 1,
-                num_iteration: 1,
-            },
-        ),
-        Some(
-            Square {
-                value: 3,
-                num_iteration: 9,
-            },
-        ),
-        Some(
-            Square {
-                value: 6,
-                num_iteration: 9,
-            },
-        ),
-    ],
-    [
-        Some(
-            Square {
-                value: 9,
-                num_iteration: 6,
-            },
-        ),
-        Some(
-            Square {
-                value: 5,
-                num_iteration: 8,
-            },
-        ),
-        Some(
-            Square {
-                value: 3,
-                num_iteration: 8,
-            },
-        ),
-        Some(
-            Square {
-                value: 1,
-                num_iteration: 13,
-            },
-        ),
-        Some(
-            Square {
-                value: 8,
-                num_iteration: 12,
-            },
-        ),
-        Some(
-            Square {
-                value: 6,
-                num_iteration: 13,
-            },
-        ),
-        Some(
-            Square {
-                value: 4,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 7,
-                num_iteration: 12,
-            },
-        ),
-        Some(
-            Square {
-                value: 2,
-                num_iteration: 0,
-            },
-        ),
-    ],
-    [
-        Some(
-            Square {
-                value: 5,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 1,
-                num_iteration: 14,
-            },
-        ),
-        Some(
-            Square {
-                value: 2,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 6,
-                num_iteration: 15,
-            },
-        ),
-        Some(
-            Square {
-                value: 3,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 7,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 9,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 4,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 8,
-                num_iteration: 16,
-            },
-        ),
-    ],
-    [
-        Some(
-            Square {
-                value: 6,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 9,
-                num_iteration: 14,
-            },
-        ),
-        Some(
-            Square {
-                value: 7,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 8,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 4,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 1,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 3,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 2,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 5,
-                num_iteration: 16,
-            },
-        ),
-    ],
-    [
-        Some(
-            Square {
-                value: 8,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 3,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 4,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 5,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 2,
-                num_iteration: 17,
-            },
-        ),
-        Some(
-            Square {
-                value: 9,
-                num_iteration: 17,
-            },
-        ),
-        Some(
-            Square {
-                value: 6,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 1,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 7,
-                num_iteration: 16,
-            },
-        ),
-    ],
-    [
-        Some(
-            Square {
-                value: 2,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 7,
-                num_iteration: 8,
-            },
-        ),
-        Some(
-            Square {
-                value: 6,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 4,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 1,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 5,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 8,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 9,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 3,
-                num_iteration: 0,
-            },
-        ),
-    ],
-    [
-        Some(
-            Square {
-                value: 3,
-                num_iteration: 6,
-            },
-        ),
-        Some(
-            Square {
-                value: 4,
-                num_iteration: 5,
-            },
-        ),
-        Some(
-            Square {
-                value: 9,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 7,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 6,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 8,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 2,
-                num_iteration: 3,
-            },
-        ),
-        Some(
-            Square {
-                value: 5,
-                num_iteration: 4,
-            },
-        ),
-        Some(
-            Square {
-                value: 1,
-                num_iteration: 16,
-            },
-        ),
-    ],
-    [
-        Some(
-            Square {
-                value: 1,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 8,
-                num_iteration: 8,
-            },
-        ),
-        Some(
-            Square {
-                value: 5,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 3,
-                num_iteration: 10,
-            },
-        ),
-        Some(
-            Square {
-                value: 9,
-                num_iteration: 17,
-            },
-        ),
-        Some(
-            Square {
-                value: 2,
-                num_iteration: 17,
-            },
-        ),
-        Some(
-            Square {
-                value: 7,
-                num_iteration: 0,
-            },
-        ),
-        Some(
-            Square {
-                value: 6,
-                num_iteration: 16,
-            },
-        ),
-        Some(
-            Square {
-                value: 4,
-                num_iteration: 0,
-            },
-        ),
-    ],
-]
-};
+        let expected_board = Board {
+            squares: [
+                [
+                    Some(Square {
+                        value: 4,
+                        num_iteration: 8,
+                    }),
+                    Some(Square {
+                        value: 6,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 1,
+                        num_iteration: 8,
+                    }),
+                    Some(Square {
+                        value: 2,
+                        num_iteration: 10,
+                    }),
+                    Some(Square {
+                        value: 7,
+                        num_iteration: 11,
+                    }),
+                    Some(Square {
+                        value: 3,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 5,
+                        num_iteration: 2,
+                    }),
+                    Some(Square {
+                        value: 8,
+                        num_iteration: 12,
+                    }),
+                    Some(Square {
+                        value: 9,
+                        num_iteration: 12,
+                    }),
+                ],
+                [
+                    Some(Square {
+                        value: 7,
+                        num_iteration: 8,
+                    }),
+                    Some(Square {
+                        value: 2,
+                        num_iteration: 7,
+                    }),
+                    Some(Square {
+                        value: 8,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 9,
+                        num_iteration: 9,
+                    }),
+                    Some(Square {
+                        value: 5,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 4,
+                        num_iteration: 9,
+                    }),
+                    Some(Square {
+                        value: 1,
+                        num_iteration: 1,
+                    }),
+                    Some(Square {
+                        value: 3,
+                        num_iteration: 9,
+                    }),
+                    Some(Square {
+                        value: 6,
+                        num_iteration: 9,
+                    }),
+                ],
+                [
+                    Some(Square {
+                        value: 9,
+                        num_iteration: 6,
+                    }),
+                    Some(Square {
+                        value: 5,
+                        num_iteration: 8,
+                    }),
+                    Some(Square {
+                        value: 3,
+                        num_iteration: 8,
+                    }),
+                    Some(Square {
+                        value: 1,
+                        num_iteration: 13,
+                    }),
+                    Some(Square {
+                        value: 8,
+                        num_iteration: 12,
+                    }),
+                    Some(Square {
+                        value: 6,
+                        num_iteration: 13,
+                    }),
+                    Some(Square {
+                        value: 4,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 7,
+                        num_iteration: 12,
+                    }),
+                    Some(Square {
+                        value: 2,
+                        num_iteration: 0,
+                    }),
+                ],
+                [
+                    Some(Square {
+                        value: 5,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 1,
+                        num_iteration: 14,
+                    }),
+                    Some(Square {
+                        value: 2,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 6,
+                        num_iteration: 15,
+                    }),
+                    Some(Square {
+                        value: 3,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 7,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 9,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 4,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 8,
+                        num_iteration: 16,
+                    }),
+                ],
+                [
+                    Some(Square {
+                        value: 6,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 9,
+                        num_iteration: 14,
+                    }),
+                    Some(Square {
+                        value: 7,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 8,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 4,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 1,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 3,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 2,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 5,
+                        num_iteration: 16,
+                    }),
+                ],
+                [
+                    Some(Square {
+                        value: 8,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 3,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 4,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 5,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 2,
+                        num_iteration: 17,
+                    }),
+                    Some(Square {
+                        value: 9,
+                        num_iteration: 17,
+                    }),
+                    Some(Square {
+                        value: 6,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 1,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 7,
+                        num_iteration: 16,
+                    }),
+                ],
+                [
+                    Some(Square {
+                        value: 2,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 7,
+                        num_iteration: 8,
+                    }),
+                    Some(Square {
+                        value: 6,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 4,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 1,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 5,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 8,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 9,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 3,
+                        num_iteration: 0,
+                    }),
+                ],
+                [
+                    Some(Square {
+                        value: 3,
+                        num_iteration: 6,
+                    }),
+                    Some(Square {
+                        value: 4,
+                        num_iteration: 5,
+                    }),
+                    Some(Square {
+                        value: 9,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 7,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 6,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 8,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 2,
+                        num_iteration: 3,
+                    }),
+                    Some(Square {
+                        value: 5,
+                        num_iteration: 4,
+                    }),
+                    Some(Square {
+                        value: 1,
+                        num_iteration: 16,
+                    }),
+                ],
+                [
+                    Some(Square {
+                        value: 1,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 8,
+                        num_iteration: 8,
+                    }),
+                    Some(Square {
+                        value: 5,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 3,
+                        num_iteration: 10,
+                    }),
+                    Some(Square {
+                        value: 9,
+                        num_iteration: 17,
+                    }),
+                    Some(Square {
+                        value: 2,
+                        num_iteration: 17,
+                    }),
+                    Some(Square {
+                        value: 7,
+                        num_iteration: 0,
+                    }),
+                    Some(Square {
+                        value: 6,
+                        num_iteration: 16,
+                    }),
+                    Some(Square {
+                        value: 4,
+                        num_iteration: 0,
+                    }),
+                ],
+            ],
+        };
 
         let mut board = convert(board_response);
         time_test!();
