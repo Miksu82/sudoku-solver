@@ -10,22 +10,40 @@ use serde::{Deserialize, Deserializer};
 use std::fmt::Display;
 use std::str::FromStr;
 
-const BOARD_SIZE: usize = 9;
-const DIVIDER_SIZE: usize = 3;
+const SUDOKU_SIZE: usize = 9;
+const BOX_SIZE: usize = 3;
 lazy_static! {
 
     // Why this doesn't work
-    //static ref DIVIDER_SIZE : usize = (BOARD_SIZE as f64).sqrt() as usize;
+    //static ref BOX_SIZE : usize = (SUDOKU_SIZE as f64).sqrt() as usize;
 
-    static ref OFFSET : [[([usize; DIVIDER_SIZE], [usize; DIVIDER_SIZE]); BOARD_SIZE]; BOARD_SIZE] = {
+    /// A table with indeces for a box. For example for x=3, y=1 the containing box has
+    /// indeces (x: [3, 4, 5], y: [0, 1, 2])
+    static ref BOX_INDECES : [[([usize; BOX_SIZE], [usize; BOX_SIZE]); SUDOKU_SIZE]; SUDOKU_SIZE] = {
 
-        let mut arr = [[([0; DIVIDER_SIZE], [0; DIVIDER_SIZE]); BOARD_SIZE]; BOARD_SIZE];
-        for x in 0..BOARD_SIZE {
-            for y in 0..BOARD_SIZE {
-                let indeces_x = get_offsets(x);
-                let indeces_y = get_offsets(y);
-                arr[x][y].0 = indeces_x;
-                arr[x][y].1 = indeces_y;
+        fn get_box_indeces(index: usize) -> [usize; BOX_SIZE] {
+            let offset = (index % BOX_SIZE) as i8;
+            let indeces = (0..(BOX_SIZE as i8))
+                            .map(|value| value - offset) // offset inside the box
+                            .map(|value| value + (index as i8)) // convert to index
+                            .map(|value| value as usize); // convert to correct type
+
+            return array_init::from_iter(indeces).unwrap();
+
+            // let foo = array_init.array_init
+            // let mut indeces: [usize; BOX_SIZE] = [0; BOX_SIZE];
+            // for (i, value) in offsets.enumerate() {
+            //     indeces[i] = (value + index as i8) as usize;
+            // }
+
+            // return indeces;
+        }
+
+        let mut arr = [[([0; BOX_SIZE], [0; BOX_SIZE]); SUDOKU_SIZE]; SUDOKU_SIZE];
+        for x in 0..SUDOKU_SIZE {
+            for y in 0..SUDOKU_SIZE {
+                arr[x][y].0 = get_box_indeces(x);
+                arr[x][y].1 = get_box_indeces(y);
             }
         }
         arr
@@ -33,41 +51,41 @@ lazy_static! {
 }
 
 #[derive(Deserialize, Debug)]
-struct SquareResponse {
+struct CellResponse {
     x: usize,
     y: usize,
     value: u8,
 }
 
 #[derive(Deserialize, Debug)]
-struct BoardResponse {
+struct SudokuResponse {
     response: bool,
     #[serde(deserialize_with = "from_str")]
     size: u8,
-    squares: Vec<SquareResponse>,
+    cells: Vec<CellResponse>,
 }
 
 #[derive(Debug, Copy, Clone)]
-struct Square {
+struct Cell {
     value: u8,
     num_iteration: u32,
 }
 
-type Squares = [[Option<Square>; BOARD_SIZE]; BOARD_SIZE];
+type Cells = [[Option<Cell>; SUDOKU_SIZE]; SUDOKU_SIZE];
 
 #[derive(Copy, Clone)]
-struct Board {
-    squares: Squares,
+struct Sudoku {
+    cells: Cells,
 }
 
-impl std::fmt::Display for Board {
+impl std::fmt::Display for Sudoku {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(fmt, "").unwrap();
-        for x in 0..BOARD_SIZE {
-            for y in 0..BOARD_SIZE {
-                let to_write = match self.squares[x][y] {
+        for x in 0..SUDOKU_SIZE {
+            for y in 0..SUDOKU_SIZE {
+                let to_write = match self.cells[x][y] {
                     None => String::from(" "),
-                    Some(square) => square.value.to_string(),
+                    Some(cell) => cell.value.to_string(),
                 };
                 write!(fmt, "|{}", to_write).unwrap()
             }
@@ -77,54 +95,54 @@ impl std::fmt::Display for Board {
     }
 }
 
-impl std::fmt::Debug for Board {
+impl std::fmt::Debug for Sudoku {
     fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.squares[..].fmt(formatter)
+        self.cells[..].fmt(formatter)
     }
 }
 
-impl PartialEq for Square {
+impl PartialEq for Cell {
     fn eq(&self, other: &Self) -> bool {
         return self.value == other.value;
     }
 }
-impl PartialEq for Board {
+impl PartialEq for Sudoku {
     fn eq(&self, other: &Self) -> bool {
-        return self.squares == other.squares;
+        return self.cells == other.cells;
     }
 }
 
 fn main() {
     println!("Sudoku solver");
 
-    let board_response = make_request().expect("Failed to get sudoku");
-    let mut board = convert(board_response);
-    println!("board = {}", board);
-    solve(&mut board.squares, 0);
-    println!("solved board = {}", board);
+    let sudoku_response = make_request().expect("Failed to get sudoku");
+    let mut sudoku = convert(sudoku_response);
+    println!("Sudoku = {}", sudoku);
+    solve(&mut sudoku.cells, 0);
+    println!("solved Sudoku = {}", sudoku);
 }
 
-fn convert(response: BoardResponse) -> Board {
-    let mut squares: Squares = [[None; BOARD_SIZE]; BOARD_SIZE];
+fn convert(response: SudokuResponse) -> Sudoku {
+    let mut cells: Cells = [[None; SUDOKU_SIZE]; SUDOKU_SIZE];
 
-    for square in response.squares {
-        squares[square.x][square.y] = Some(Square {
-            value: square.value,
+    for cell in response.cells {
+        cells[cell.x][cell.y] = Some(Cell {
+            value: cell.value,
             num_iteration: 0,
         })
     }
 
-    return Board { squares: squares };
+    return Sudoku { cells: cells };
 }
 
-fn solve(squares: &mut Squares, num_iteration: u32) -> bool {
+fn solve(cells: &mut Cells, num_iteration: u32) -> bool {
     let mut all_possible_values: Vec<(usize, usize, Vec<u8>)> = Vec::new();
 
     let mut should_finish = false;
-    for x in 0..BOARD_SIZE {
-        for y in 0..BOARD_SIZE {
-            if squares[x][y].is_none() {
-                let possible_values = find_value(squares, x, y);
+    for x in 0..SUDOKU_SIZE {
+        for y in 0..SUDOKU_SIZE {
+            if cells[x][y].is_none() {
+                let possible_values = find_value(cells, x, y);
                 should_finish = possible_values.len() == 1;
 
                 all_possible_values.push((x, y, possible_values));
@@ -157,12 +175,12 @@ fn solve(squares: &mut Squares, num_iteration: u32) -> bool {
         let x = less_possible_values.0;
         let y = less_possible_values.1;
         let value = less_possible_values.2[0];
-        squares[x][y] = Some(Square {
+        cells[x][y] = Some(Cell {
             value: value,
             num_iteration: num_iteration,
         });
 
-        return solve(squares, num_iteration);
+        return solve(cells, num_iteration);
     }
 
     let x = less_possible_values.0;
@@ -176,22 +194,22 @@ fn solve(squares: &mut Squares, num_iteration: u32) -> bool {
             num_iteration + 1
         };
 
-        squares[x][y] = Some(Square {
+        cells[x][y] = Some(Cell {
             value: *possible_value,
             num_iteration: next_iteration,
         });
 
-        let is_finished = solve(squares, next_iteration);
+        let is_finished = solve(cells, next_iteration);
 
         if is_finished {
             return true;
         }
 
-        for x in 0..BOARD_SIZE {
-            for y in 0..BOARD_SIZE {
-                if squares[x][y].is_some() && squares[x][y].unwrap().num_iteration == next_iteration
+        for x in 0..SUDOKU_SIZE {
+            for y in 0..SUDOKU_SIZE {
+                if cells[x][y].is_some() && cells[x][y].unwrap().num_iteration == next_iteration
                 {
-                    squares[x][y] = None;
+                    cells[x][y] = None;
                 }
             }
         }
@@ -200,55 +218,42 @@ fn solve(squares: &mut Squares, num_iteration: u32) -> bool {
     return false;
 }
 
-fn find_value(squares: &mut Squares, x: usize, y: usize) -> Vec<u8> {
+fn find_value(cells: &mut Cells, x: usize, y: usize) -> Vec<u8> {
     // [Some(1), Some(2), ...];
-    let mut possible_values: [Option<u8>; BOARD_SIZE] =
+    let mut possible_values: [Option<u8>; SUDOKU_SIZE] =
         array_init::array_init(|i| Some((i as u8) + 1));
 
-    let mut remove_value_if_necessary = |square: &Option<Square>| {
-        if square.is_some() {
-            possible_values[(square.unwrap().value - 1) as usize] = None;
+    let mut remove_value_if_necessary = |cell: &Option<Cell>| {
+        if cell.is_some() {
+            possible_values[(cell.unwrap().value - 1) as usize] = None;
         }
     };
 
-    for rolling in 0..BOARD_SIZE {
-        let square_x = squares[x][rolling];
-        remove_value_if_necessary(&square_x);
+    for rolling in 0..SUDOKU_SIZE {
+        let cell_x = cells[x][rolling];
+        remove_value_if_necessary(&cell_x);
 
-        let square_y = squares[rolling][y];
-        remove_value_if_necessary(&square_y);
+        let cell_y = cells[rolling][y];
+        remove_value_if_necessary(&cell_y);
     }
 
-    let offset = OFFSET[x][y];
-    for rolling_x in offset.0.iter() {
-        for rolling_y in offset.1.iter() {
-            let square = squares[*rolling_x][*rolling_y];
-            remove_value_if_necessary(&square);
+    let box_indeces = BOX_INDECES[x][y];
+    for box_x in box_indeces.0.iter() {
+        for box_y in box_indeces.1.iter() {
+            let cell = cells[*box_x][*box_y];
+            remove_value_if_necessary(&cell);
         }
     }
 
     return possible_values.iter().filter_map(|x| *x).collect();
 }
 
-fn get_offsets(index: usize) -> [usize; DIVIDER_SIZE] {
-    let offset = (index % DIVIDER_SIZE) as i8;
-    let rolling = 0..(DIVIDER_SIZE as i8);
-
-    let offsets = rolling.map(|value| value - offset);
-    let mut indeces: [usize; DIVIDER_SIZE] = [0; DIVIDER_SIZE];
-
-    for (i, value) in offsets.enumerate() {
-        indeces[i] = (value + index as i8) as usize;
-    }
-
-    return indeces;
-}
-
-fn make_request() -> Result<BoardResponse, reqwest::Error> {
+fn make_request() -> Result<SudokuResponse, reqwest::Error> {
     let client = reqwest::Client::new();
+    let query_params = [("size", SUDOKU_SIZE.to_string()), ("level", 3.to_string())];
     let json = client
         .get("http://www.cs.utep.edu/cheon/ws/sudoku/new")
-        .query(&[("size", BOARD_SIZE.to_string()), ("level", 3.to_string())]) // What is &[()]
+        .query(&query_params)
         .send()?
         .json()?;
     return Ok(json);
@@ -275,131 +280,131 @@ mod tests {
 
     #[test]
     fn test_solve() {
-        let board_response = BoardResponse {
+        let sudoku_response = SudokuResponse {
             response: true,
             size: 9,
-            squares: vec![
-                SquareResponse {
+            cells: vec![
+                CellResponse {
                     x: 2,
                     y: 0,
                     value: 1,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 6,
                     y: 0,
                     value: 6,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 1,
                     y: 1,
                     value: 4,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 3,
                     y: 1,
                     value: 7,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 5,
                     y: 1,
                     value: 3,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 7,
                     y: 1,
                     value: 8,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 0,
                     y: 2,
                     value: 3,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 8,
                     y: 2,
                     value: 9,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 1,
                     y: 3,
                     value: 7,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 3,
                     y: 3,
                     value: 4,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 5,
                     y: 3,
                     value: 9,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 7,
                     y: 3,
                     value: 3,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 4,
                     y: 4,
                     value: 8,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 1,
                     y: 5,
                     value: 8,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 3,
                     y: 5,
                     value: 5,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 5,
                     y: 5,
                     value: 1,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 7,
                     y: 5,
                     value: 6,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 0,
                     y: 6,
                     value: 6,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 8,
                     y: 6,
                     value: 4,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 1,
                     y: 7,
                     value: 3,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 3,
                     y: 7,
                     value: 1,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 5,
                     y: 7,
                     value: 7,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 7,
                     y: 7,
                     value: 5,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 2,
                     y: 8,
                     value: 9,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 6,
                     y: 8,
                     value: 2,
@@ -407,346 +412,346 @@ mod tests {
             ],
         };
 
-        let expected_board = Board {
-            squares: [
+        let expected_sudoku = Sudoku {
+            cells: [
                 [
-                    Some(Square {
+                    Some(Cell {
                         value: 7,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 2,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 3,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 1,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 4,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 9,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 6,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 8,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 5,
                         num_iteration: 2,
                     }),
                 ],
                 [
-                    Some(Square {
+                    Some(Cell {
                         value: 9,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 4,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 5,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 7,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 6,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 8,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 2,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 3,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 1,
                         num_iteration: 1,
                     }),
                 ],
                 [
-                    Some(Square {
+                    Some(Cell {
                         value: 1,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 6,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 8,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 2,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 5,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 3,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 7,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 4,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 9,
                         num_iteration: 0,
                     }),
                 ],
                 [
-                    Some(Square {
+                    Some(Cell {
                         value: 8,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 7,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 2,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 4,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 3,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 5,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 9,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 1,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 6,
                         num_iteration: 3,
                     }),
                 ],
                 [
-                    Some(Square {
+                    Some(Cell {
                         value: 4,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 9,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 1,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 6,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 8,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 7,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 5,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 2,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 3,
                         num_iteration: 3,
                     }),
                 ],
                 [
-                    Some(Square {
+                    Some(Cell {
                         value: 5,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 3,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 6,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 9,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 2,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 1,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 8,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 7,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 4,
                         num_iteration: 3,
                     }),
                 ],
                 [
-                    Some(Square {
+                    Some(Cell {
                         value: 6,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 5,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 7,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 8,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 1,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 4,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 3,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 9,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 2,
                         num_iteration: 0,
                     }),
                 ],
                 [
-                    Some(Square {
+                    Some(Cell {
                         value: 2,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 8,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 4,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 3,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 9,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 6,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 1,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 5,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 7,
                         num_iteration: 1,
                     }),
                 ],
                 [
-                    Some(Square {
+                    Some(Cell {
                         value: 3,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 1,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 9,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 5,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 7,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 2,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 4,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 6,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 8,
                         num_iteration: 3,
                     }),
@@ -754,116 +759,116 @@ mod tests {
             ],
         };
 
-        let mut board = convert(board_response);
+        let mut sudoku = convert(sudoku_response);
 
         time_test!();
 
-        solve(&mut board.squares, 0);
-        assert_eq!(expected_board, board);
+        solve(&mut sudoku.cells, 0);
+        assert_eq!(expected_sudoku, sudoku);
     }
 
     #[test]
     fn test_may_take_long_time_to_solve() {
-        let board_response = BoardResponse {
+        let sudoku_response = SudokuResponse {
             response: true,
             size: 9,
-            squares: vec![
-                SquareResponse {
+            cells: vec![
+                CellResponse {
                     x: 0,
                     y: 1,
                     value: 6,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 0,
                     y: 5,
                     value: 3,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 1,
                     y: 2,
                     value: 8,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 1,
                     y: 4,
                     value: 5,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 2,
                     y: 6,
                     value: 4,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 2,
                     y: 8,
                     value: 2,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 3,
                     y: 0,
                     value: 5,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 4,
                     y: 4,
                     value: 4,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 4,
                     y: 6,
                     value: 3,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 5,
                     y: 1,
                     value: 3,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 5,
                     y: 2,
                     value: 4,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 5,
                     y: 7,
                     value: 1,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 6,
                     y: 5,
                     value: 5,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 6,
                     y: 8,
                     value: 3,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 7,
                     y: 2,
                     value: 9,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 7,
                     y: 3,
                     value: 7,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 7,
                     y: 4,
                     value: 6,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 8,
                     y: 0,
                     value: 1,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 8,
                     y: 6,
                     value: 7,
                 },
-                SquareResponse {
+                CellResponse {
                     x: 8,
                     y: 8,
                     value: 4,
@@ -871,346 +876,346 @@ mod tests {
             ],
         };
 
-        let expected_board = Board {
-            squares: [
+        let expected_sudoku = Sudoku {
+            cells: [
                 [
-                    Some(Square {
+                    Some(Cell {
                         value: 4,
                         num_iteration: 8,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 6,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 1,
                         num_iteration: 8,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 2,
                         num_iteration: 10,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 7,
                         num_iteration: 11,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 3,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 5,
                         num_iteration: 2,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 8,
                         num_iteration: 12,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 9,
                         num_iteration: 12,
                     }),
                 ],
                 [
-                    Some(Square {
+                    Some(Cell {
                         value: 7,
                         num_iteration: 8,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 2,
                         num_iteration: 7,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 8,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 9,
                         num_iteration: 9,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 5,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 4,
                         num_iteration: 9,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 1,
                         num_iteration: 1,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 3,
                         num_iteration: 9,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 6,
                         num_iteration: 9,
                     }),
                 ],
                 [
-                    Some(Square {
+                    Some(Cell {
                         value: 9,
                         num_iteration: 6,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 5,
                         num_iteration: 8,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 3,
                         num_iteration: 8,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 1,
                         num_iteration: 13,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 8,
                         num_iteration: 12,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 6,
                         num_iteration: 13,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 4,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 7,
                         num_iteration: 12,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 2,
                         num_iteration: 0,
                     }),
                 ],
                 [
-                    Some(Square {
+                    Some(Cell {
                         value: 5,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 1,
                         num_iteration: 14,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 2,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 6,
                         num_iteration: 15,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 3,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 7,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 9,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 4,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 8,
                         num_iteration: 16,
                     }),
                 ],
                 [
-                    Some(Square {
+                    Some(Cell {
                         value: 6,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 9,
                         num_iteration: 14,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 7,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 8,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 4,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 1,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 3,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 2,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 5,
                         num_iteration: 16,
                     }),
                 ],
                 [
-                    Some(Square {
+                    Some(Cell {
                         value: 8,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 3,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 4,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 5,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 2,
                         num_iteration: 17,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 9,
                         num_iteration: 17,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 6,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 1,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 7,
                         num_iteration: 16,
                     }),
                 ],
                 [
-                    Some(Square {
+                    Some(Cell {
                         value: 2,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 7,
                         num_iteration: 8,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 6,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 4,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 1,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 5,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 8,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 9,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 3,
                         num_iteration: 0,
                     }),
                 ],
                 [
-                    Some(Square {
+                    Some(Cell {
                         value: 3,
                         num_iteration: 6,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 4,
                         num_iteration: 5,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 9,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 7,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 6,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 8,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 2,
                         num_iteration: 3,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 5,
                         num_iteration: 4,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 1,
                         num_iteration: 16,
                     }),
                 ],
                 [
-                    Some(Square {
+                    Some(Cell {
                         value: 1,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 8,
                         num_iteration: 8,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 5,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 3,
                         num_iteration: 10,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 9,
                         num_iteration: 17,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 2,
                         num_iteration: 17,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 7,
                         num_iteration: 0,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 6,
                         num_iteration: 16,
                     }),
-                    Some(Square {
+                    Some(Cell {
                         value: 4,
                         num_iteration: 0,
                     }),
@@ -1218,11 +1223,11 @@ mod tests {
             ],
         };
 
-        let mut board = convert(board_response);
-        time_test!();
-        println!("board = {}", board);
+        let mut sudoku = convert(sudoku_response);
 
-        solve(&mut board.squares, 0);
-        assert_eq!(expected_board, board);
+        time_test!();
+
+        solve(&mut sudoku.cells, 0);
+        assert_eq!(expected_sudoku, sudoku);
     }
 }
