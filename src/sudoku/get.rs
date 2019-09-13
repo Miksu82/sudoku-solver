@@ -1,7 +1,7 @@
+use super::{Cell, Cells, Sudoku, SUDOKU_SIZE};
 use serde::{Deserialize, Deserializer};
 use std::fmt::Display;
 use std::str::FromStr;
-use super::{SUDOKU_SIZE, Sudoku, Cells, Cell};
 
 #[derive(Deserialize, Debug)]
 struct CellResponse {
@@ -19,18 +19,17 @@ struct SudokuResponse {
 }
 
 pub enum Difficulty {
-    Easy =1,
+    Easy = 1,
     Medium = 2,
     Hard = 3,
 }
 
-pub fn create_sudoku(level: Difficulty) -> Result<Sudoku, String>  {
+pub fn create_sudoku(level: Difficulty) -> Result<Sudoku, String> {
     return match make_request(level) {
-        Ok(response) =>  Ok(convert(response)),
-        Err(e) => Err(e.to_string())
+        Ok(response) => Ok(convert(response)),
+        Err(e) => Err(e.to_string()),
     };
 }
-
 
 fn convert(response: SudokuResponse) -> Sudoku {
     let mut cells: Cells = [[None; SUDOKU_SIZE]; SUDOKU_SIZE];

@@ -1,5 +1,5 @@
-pub mod solver;
 pub mod get;
+pub mod solver;
 
 mod constants;
 
