@@ -1,4 +1,4 @@
-extern crate array_tool;
+extern crate array_init;
 extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
@@ -31,18 +31,6 @@ lazy_static! {
         arr
     };
 }
-
-const ALL: [Option<u8>; BOARD_SIZE] = [
-    Some(1),
-    Some(2),
-    Some(3),
-    Some(4),
-    Some(5),
-    Some(6),
-    Some(7),
-    Some(8),
-    Some(9),
-];
 
 #[derive(Deserialize, Debug)]
 struct SquareResponse {
@@ -213,8 +201,9 @@ fn solve(squares: &mut Squares, num_iteration: u32) -> bool {
 }
 
 fn find_value(squares: &mut Squares, x: usize, y: usize) -> Vec<u8> {
-    let mut possible_values: [Option<u8>; BOARD_SIZE] = [None; BOARD_SIZE];
-    possible_values.copy_from_slice(&ALL);
+    // [Some(1), Some(2), ...];
+    let mut possible_values: [Option<u8>; BOARD_SIZE] =
+        array_init::array_init(|i| Some((i as u8) + 1));
 
     let mut set_value_if_necessary = |square: &Option<Square>| {
         if square.is_some() {
