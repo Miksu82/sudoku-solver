@@ -62,7 +62,7 @@ struct SudokuResponse {
     response: bool,
     #[serde(deserialize_with = "from_str")]
     size: u8,
-    cells: Vec<CellResponse>,
+    squares: Vec<CellResponse>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -125,7 +125,7 @@ fn main() {
 fn convert(response: SudokuResponse) -> Sudoku {
     let mut cells: Cells = [[None; SUDOKU_SIZE]; SUDOKU_SIZE];
 
-    for cell in response.cells {
+    for cell in response.squares {
         cells[cell.x][cell.y] = Some(Cell {
             value: cell.value,
             num_iteration: 0,
@@ -283,7 +283,7 @@ mod tests {
         let sudoku_response = SudokuResponse {
             response: true,
             size: 9,
-            cells: vec![
+            squares: vec![
                 CellResponse {
                     x: 2,
                     y: 0,
@@ -772,7 +772,7 @@ mod tests {
         let sudoku_response = SudokuResponse {
             response: true,
             size: 9,
-            cells: vec![
+            squares: vec![
                 CellResponse {
                     x: 0,
                     y: 1,
