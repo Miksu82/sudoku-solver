@@ -680,8 +680,6 @@ mod tests {
             ],
         };
 
-        //time_test!();
-
         solve(&mut sudoku);
         assert_eq!(expected_sudoku, sudoku);
     }
@@ -1198,7 +1196,6 @@ mod tests {
                 ],
             ],
         };
-        //time_test!();
 
         solve(&mut sudoku);
         assert_eq!(expected_sudoku, sudoku);
