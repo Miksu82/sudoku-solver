@@ -205,27 +205,25 @@ fn find_value(squares: &mut Squares, x: usize, y: usize) -> Vec<u8> {
     let mut possible_values: [Option<u8>; BOARD_SIZE] =
         array_init::array_init(|i| Some((i as u8) + 1));
 
-    let mut set_value_if_necessary = |square: &Option<Square>| {
+    let mut remove_value_if_necessary = |square: &Option<Square>| {
         if square.is_some() {
             possible_values[(square.unwrap().value - 1) as usize] = None;
         }
     };
 
-    for rolling_y in 0..BOARD_SIZE {
-        let square = squares[x][rolling_y];
-        set_value_if_necessary(&square);
-    }
+    for rolling in 0..BOARD_SIZE {
+        let square_x = squares[x][rolling];
+        remove_value_if_necessary(&square_x);
 
-    for rolling_x in 0..BOARD_SIZE {
-        let square = squares[rolling_x][y];
-        set_value_if_necessary(&square);
+        let square_y = squares[rolling][y];
+        remove_value_if_necessary(&square_y);
     }
 
     let offset = OFFSET[x][y];
     for rolling_x in offset.0.iter() {
         for rolling_y in offset.1.iter() {
             let square = squares[*rolling_x][*rolling_y];
-            set_value_if_necessary(&square);
+            remove_value_if_necessary(&square);
         }
     }
 
