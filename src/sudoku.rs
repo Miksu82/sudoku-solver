@@ -1,9 +1,10 @@
 pub mod get;
 pub mod solver;
 
-mod constants;
-
-use constants::SUDOKU_SIZE;
+const SUDOKU_SIZE: usize = 9;
+// Unfortunately f64.sqrt() is not const fn so BOX_SIZE cannot be computed
+// in compile time.
+const BOX_SIZE: usize = 3;
 
 #[derive(Debug, Copy, Clone)]
 struct Cell {

@@ -1,10 +1,6 @@
-use super::constants::{BOX_SIZE, SUDOKU_SIZE};
-use super::{Cell, Cells, Sudoku};
+use super::{BOX_SIZE, SUDOKU_SIZE, Cell, Cells, Sudoku};
 
 lazy_static! {
-
-    // Why this doesn't work
-    //static ref BOX_SIZE : usize = (SUDOKU_SIZE as f64).sqrt() as usize;
 
     /// A table with indeces for a box. For example for x=3, y=1 the containing box has
     /// indeces (x: [3, 4, 5], y: [0, 1, 2])
