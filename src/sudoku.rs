@@ -22,8 +22,8 @@ pub struct Sudoku {
 impl std::fmt::Display for Sudoku {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(fmt, "").unwrap();
-        for x in 0..SUDOKU_SIZE {
-            for y in 0..SUDOKU_SIZE {
+        for y in 0..SUDOKU_SIZE {
+            for x in 0..SUDOKU_SIZE {
                 let to_write = match self.cells[x][y] {
                     None => String::from(" "),
                     Some(cell) => cell.value.to_string(),
