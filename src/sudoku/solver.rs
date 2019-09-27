@@ -2,25 +2,25 @@ use super::{BOX_SIZE, SUDOKU_SIZE, Cell, Cells, Sudoku};
 
 lazy_static! {
 
-    /// A table with indeces for a box. For example for x=3, y=1 the containing box has
-    /// indeces (x: [3, 4, 5], y: [0, 1, 2])
-    static ref BOX_INDECES : [[([usize; BOX_SIZE], [usize; BOX_SIZE]); SUDOKU_SIZE]; SUDOKU_SIZE] = {
+    /// A table with indices for a box. For example for x=3, y=1 the containing box has
+    /// indices (x: [3, 4, 5], y: [0, 1, 2])
+    static ref BOX_INDICES : [[([usize; BOX_SIZE], [usize; BOX_SIZE]); SUDOKU_SIZE]; SUDOKU_SIZE] = {
 
-        fn get_box_indeces(index: usize) -> [usize; BOX_SIZE] {
+        fn get_box_indices(index: usize) -> [usize; BOX_SIZE] {
             let offset = (index % BOX_SIZE) as i8;
-            let indeces = (0..(BOX_SIZE as i8))
+            let indices = (0..(BOX_SIZE as i8))
                             .map(|value| value - offset) // offset inside the box
                             .map(|value| value + (index as i8)) // convert to index
                             .map(|value| value as usize); // convert to correct type
 
-            return array_init::from_iter(indeces).unwrap();
+            return array_init::from_iter(indices).unwrap();
         }
 
         let mut arr = [[([0; BOX_SIZE], [0; BOX_SIZE]); SUDOKU_SIZE]; SUDOKU_SIZE];
         for x in 0..SUDOKU_SIZE {
             for y in 0..SUDOKU_SIZE {
-                arr[x][y].0 = get_box_indeces(x);
-                arr[x][y].1 = get_box_indeces(y);
+                arr[x][y].0 = get_box_indices(x);
+                arr[x][y].1 = get_box_indices(y);
             }
         }
         arr
@@ -132,9 +132,9 @@ fn find_value(cells: &mut Cells, x: usize, y: usize) -> Vec<u8> {
         remove_value_if_necessary(&cell_y);
     }
 
-    let box_indeces = BOX_INDECES[x][y];
-    for box_x in box_indeces.0.iter() {
-        for box_y in box_indeces.1.iter() {
+    let indices = BOX_INDICES[x][y];
+    for box_x in indices.0.iter() {
+        for box_y in indices.1.iter() {
             let cell = cells[*box_x][*box_y];
             remove_value_if_necessary(&cell);
         }
