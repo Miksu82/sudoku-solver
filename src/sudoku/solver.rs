@@ -148,187 +148,351 @@ mod tests {
 
     use super::*;
 
+    static FAST_SUDOKU: Sudoku = Sudoku {
+        cells: [
+            [
+                None,
+                None,
+                Some(Cell {
+                    value: 3,
+                    num_iteration: 0,
+                }),
+                None,
+                None,
+                None,
+                Some(Cell {
+                    value: 6,
+                    num_iteration: 0,
+                }),
+                None,
+                None,
+            ],
+            [
+                None,
+                Some(Cell {
+                    value: 4,
+                    num_iteration: 0,
+                }),
+                None,
+                Some(Cell {
+                    value: 7,
+                    num_iteration: 0,
+                }),
+                None,
+                Some(Cell {
+                    value: 8,
+                    num_iteration: 0,
+                }),
+                None,
+                Some(Cell {
+                    value: 3,
+                    num_iteration: 0,
+                }),
+                None,
+            ],
+            [
+                Some(Cell {
+                    value: 1,
+                    num_iteration: 0,
+                }),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(Cell {
+                    value: 9,
+                    num_iteration: 0,
+                }),
+            ],
+            [
+                None,
+                Some(Cell {
+                    value: 7,
+                    num_iteration: 0,
+                }),
+                None,
+                Some(Cell {
+                    value: 4,
+                    num_iteration: 0,
+                }),
+                None,
+                Some(Cell {
+                    value: 5,
+                    num_iteration: 0,
+                }),
+                None,
+                Some(Cell {
+                    value: 1,
+                    num_iteration: 0,
+                }),
+                None,
+            ],
+            [
+                None,
+                None,
+                None,
+                None,
+                Some(Cell {
+                    value: 8,
+                    num_iteration: 0,
+                }),
+                None,
+                None,
+                None,
+                None,
+            ],
+            [
+                None,
+                Some(Cell {
+                    value: 3,
+                    num_iteration: 0,
+                }),
+                None,
+                Some(Cell {
+                    value: 9,
+                    num_iteration: 0,
+                }),
+                None,
+                Some(Cell {
+                    value: 1,
+                    num_iteration: 0,
+                }),
+                None,
+                Some(Cell {
+                    value: 7,
+                    num_iteration: 0,
+                }),
+                None,
+            ],
+            [
+                Some(Cell {
+                    value: 6,
+                    num_iteration: 0,
+                }),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(Cell {
+                    value: 2,
+                    num_iteration: 0,
+                }),
+            ],
+            [
+                None,
+                Some(Cell {
+                    value: 8,
+                    num_iteration: 0,
+                }),
+                None,
+                Some(Cell {
+                    value: 3,
+                    num_iteration: 0,
+                }),
+                None,
+                Some(Cell {
+                    value: 6,
+                    num_iteration: 0,
+                }),
+                None,
+                Some(Cell {
+                    value: 5,
+                    num_iteration: 0,
+                }),
+                None,
+            ],
+            [
+                None,
+                None,
+                Some(Cell {
+                    value: 9,
+                    num_iteration: 0,
+                }),
+                None,
+                None,
+                None,
+                Some(Cell {
+                    value: 4,
+                    num_iteration: 0,
+                }),
+                None,
+                None,
+            ],
+        ],
+    };
+
+    static SLOW_SUDOKU: Sudoku = Sudoku {
+        cells: [
+            [
+                None,
+                Some(Cell {
+                    value: 6,
+                    num_iteration: 0,
+                }),
+                None,
+                None,
+                None,
+                Some(Cell {
+                    value: 3,
+                    num_iteration: 0,
+                }),
+                None,
+                None,
+                None,
+            ],
+            [
+                None,
+                None,
+                Some(Cell {
+                    value: 8,
+                    num_iteration: 0,
+                }),
+                None,
+                Some(Cell {
+                    value: 5,
+                    num_iteration: 0,
+                }),
+                None,
+                None,
+                None,
+                None,
+            ],
+            [
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(Cell {
+                    value: 4,
+                    num_iteration: 0,
+                }),
+                None,
+                Some(Cell {
+                    value: 2,
+                    num_iteration: 0,
+                }),
+            ],
+            [
+                Some(Cell {
+                    value: 5,
+                    num_iteration: 0,
+                }),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ],
+            [
+                None,
+                None,
+                None,
+                None,
+                Some(Cell {
+                    value: 4,
+                    num_iteration: 0,
+                }),
+                None,
+                Some(Cell {
+                    value: 3,
+                    num_iteration: 0,
+                }),
+                None,
+                None,
+            ],
+            [
+                None,
+                Some(Cell {
+                    value: 3,
+                    num_iteration: 0,
+                }),
+                Some(Cell {
+                    value: 4,
+                    num_iteration: 0,
+                }),
+                None,
+                None,
+                None,
+                None,
+                Some(Cell {
+                    value: 1,
+                    num_iteration: 0,
+                }),
+                None,
+            ],
+            [
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(Cell {
+                    value: 5,
+                    num_iteration: 0,
+                }),
+                None,
+                None,
+                Some(Cell {
+                    value: 3,
+                    num_iteration: 0,
+                }),
+            ],
+            [
+                None,
+                None,
+                Some(Cell {
+                    value: 9,
+                    num_iteration: 0,
+                }),
+                Some(Cell {
+                    value: 7,
+                    num_iteration: 0,
+                }),
+                Some(Cell {
+                    value: 6,
+                    num_iteration: 0,
+                }),
+                None,
+                None,
+                None,
+                None,
+            ],
+            [
+                Some(Cell {
+                    value: 1,
+                    num_iteration: 0,
+                }),
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(Cell {
+                    value: 7,
+                    num_iteration: 0,
+                }),
+                None,
+                Some(Cell {
+                    value: 4,
+                    num_iteration: 0,
+                }),
+            ],
+        ],
+    };
+
     #[test]
     fn test_solve() {
-        let mut sudoku = Sudoku {
-            cells: [
-                [
-                    None,
-                    None,
-                    Some(Cell {
-                        value: 3,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    None,
-                    None,
-                    Some(Cell {
-                        value: 6,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    None,
-                ],
-                [
-                    None,
-                    Some(Cell {
-                        value: 4,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    Some(Cell {
-                        value: 7,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    Some(Cell {
-                        value: 8,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    Some(Cell {
-                        value: 3,
-                        num_iteration: 0,
-                    }),
-                    None,
-                ],
-                [
-                    Some(Cell {
-                        value: 1,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    Some(Cell {
-                        value: 9,
-                        num_iteration: 0,
-                    }),
-                ],
-                [
-                    None,
-                    Some(Cell {
-                        value: 7,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    Some(Cell {
-                        value: 4,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    Some(Cell {
-                        value: 5,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    Some(Cell {
-                        value: 1,
-                        num_iteration: 0,
-                    }),
-                    None,
-                ],
-                [
-                    None,
-                    None,
-                    None,
-                    None,
-                    Some(Cell {
-                        value: 8,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    None,
-                    None,
-                    None,
-                ],
-                [
-                    None,
-                    Some(Cell {
-                        value: 3,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    Some(Cell {
-                        value: 9,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    Some(Cell {
-                        value: 1,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    Some(Cell {
-                        value: 7,
-                        num_iteration: 0,
-                    }),
-                    None,
-                ],
-                [
-                    Some(Cell {
-                        value: 6,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    Some(Cell {
-                        value: 2,
-                        num_iteration: 0,
-                    }),
-                ],
-                [
-                    None,
-                    Some(Cell {
-                        value: 8,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    Some(Cell {
-                        value: 3,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    Some(Cell {
-                        value: 6,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    Some(Cell {
-                        value: 5,
-                        num_iteration: 0,
-                    }),
-                    None,
-                ],
-                [
-                    None,
-                    None,
-                    Some(Cell {
-                        value: 9,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    None,
-                    None,
-                    Some(Cell {
-                        value: 4,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    None,
-                ],
-            ],
-        };
-
         let expected_sudoku = Sudoku {
             cells: [
                 [
@@ -676,176 +840,13 @@ mod tests {
             ],
         };
 
+        let mut sudoku = FAST_SUDOKU;
         solve(&mut sudoku);
         assert_eq!(expected_sudoku, sudoku);
     }
 
     #[test]
     fn test_may_take_long_time_to_solve() {
-        let mut sudoku = Sudoku {
-            cells: [
-                [
-                    None,
-                    Some(Cell {
-                        value: 6,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    None,
-                    None,
-                    Some(Cell {
-                        value: 3,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    None,
-                    None,
-                ],
-                [
-                    None,
-                    None,
-                    Some(Cell {
-                        value: 8,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    Some(Cell {
-                        value: 5,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    None,
-                    None,
-                    None,
-                ],
-                [
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    Some(Cell {
-                        value: 4,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    Some(Cell {
-                        value: 2,
-                        num_iteration: 0,
-                    }),
-                ],
-                [
-                    Some(Cell {
-                        value: 5,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                ],
-                [
-                    None,
-                    None,
-                    None,
-                    None,
-                    Some(Cell {
-                        value: 4,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    Some(Cell {
-                        value: 3,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    None,
-                ],
-                [
-                    None,
-                    Some(Cell {
-                        value: 3,
-                        num_iteration: 0,
-                    }),
-                    Some(Cell {
-                        value: 4,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    None,
-                    None,
-                    None,
-                    Some(Cell {
-                        value: 1,
-                        num_iteration: 0,
-                    }),
-                    None,
-                ],
-                [
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    Some(Cell {
-                        value: 5,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    None,
-                    Some(Cell {
-                        value: 3,
-                        num_iteration: 0,
-                    }),
-                ],
-                [
-                    None,
-                    None,
-                    Some(Cell {
-                        value: 9,
-                        num_iteration: 0,
-                    }),
-                    Some(Cell {
-                        value: 7,
-                        num_iteration: 0,
-                    }),
-                    Some(Cell {
-                        value: 6,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    None,
-                    None,
-                    None,
-                ],
-                [
-                    Some(Cell {
-                        value: 1,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    Some(Cell {
-                        value: 7,
-                        num_iteration: 0,
-                    }),
-                    None,
-                    Some(Cell {
-                        value: 4,
-                        num_iteration: 0,
-                    }),
-                ],
-            ],
-        };
-
         let expected_sudoku = Sudoku {
             cells: [
                 [
@@ -1193,7 +1194,12 @@ mod tests {
             ],
         };
 
+        let mut sudoku = SLOW_SUDOKU;
         solve(&mut sudoku);
-        assert_eq!(expected_sudoku, sudoku);
+        assert_eq!(
+            expected_sudoku, sudoku,
+            "expected {}\nresult {}",
+            expected_sudoku, sudoku
+        );
     }
 }
