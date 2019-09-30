@@ -1,6 +1,10 @@
 #[macro_use]
 extern crate lazy_static; // used in sudoku::solver
 
+#[cfg(test)]
+#[macro_use]
+extern crate time_test; // used in sudoku::solver::test
+
 pub mod sudoku;
 
 fn main() {

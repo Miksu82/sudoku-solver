@@ -1,4 +1,4 @@
-use super::{BOX_SIZE, SUDOKU_SIZE, Cell, Cells, Sudoku};
+use super::{Cell, Cells, Sudoku, BOX_SIZE, SUDOKU_SIZE};
 
 lazy_static! {
 
@@ -841,6 +841,7 @@ mod tests {
         };
 
         let mut sudoku = FAST_SUDOKU;
+        time_test!();
         solve(&mut sudoku);
         assert_eq!(expected_sudoku, sudoku);
     }
@@ -1195,6 +1196,7 @@ mod tests {
         };
 
         let mut sudoku = SLOW_SUDOKU;
+        time_test!();
         solve(&mut sudoku);
         assert_eq!(
             expected_sudoku, sudoku,
